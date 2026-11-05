@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:5173"]
 
     OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_TIMEOUT: float = 30.0
+    OPENAI_MAX_TOKENS: int = 4096
     GOOGLE_SAFE_BROWSING_API_KEY: Optional[str] = None
     URLHAUS_API_KEY: Optional[str] = None
 

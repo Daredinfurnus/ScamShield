@@ -58,3 +58,17 @@ alembic/versions/
 
 # Logs
 *.log
+# Environment secrets
+.env.*
+!.env.example
+!.env.production.example
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
