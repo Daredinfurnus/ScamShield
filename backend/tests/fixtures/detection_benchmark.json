@@ -1,0 +1,541 @@
+{
+  "benchmark_metadata": {
+    "name": "ScamShield Detection Benchmark v1.0",
+    "description": "50-case synthetic benchmark for evaluating detection quality.",
+    "total_cases": 50,
+    "created_for": "Phase 7 - Real-World Detection Benchmark & Validation",
+    "note": "All examples are synthetic. No real personal data, credentials, or live malicious URLs.",
+    "scoring_reference": "RiskScorer is the single authoritative scoring engine.",
+    "classification_threshold": "risk_score >= 25 => scam; risk_score < 25 => legitimate",
+    "risk_bands": {
+      "low": "0-24",
+      "medium": "25-49",
+      "high": "50-74",
+      "critical": "75-100"
+    }
+  },
+  "cases": [
+    {
+      "case_id": "B001",
+      "category": "banking_phishing",
+      "message": "URGENT: Your SBI account will be BLOCKED within 2 hours due to incomplete KYC verification. Verify now: http://sbi-kyc-update.example/verify Enter your ATM PIN and OTP to complete verification.",
+      "expected_classification": "scam",
+      "expected_risk_band": "critical",
+      "expected_indicators": [
+        "bank_impersonation",
+        "phishing_kyc_pressure",
+        "urgency_intimidation",
+        "otp_scam",
+        "suspicious_tld"
+      ],
+      "explanation": "SBI impersonation + urgency + KYC pressure + ATM PIN/OTP request + suspicious TLD"
+    },
+    {
+      "case_id": "B002",
+      "category": "banking_phishing",
+      "message": "HDFC Bank: Your account has been suspended due to suspicious login. Confirm your password immediately at http://secure-hdfc.example/login to avoid permanent closure.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "bank_impersonation",
+        "phishing_credential_request",
+        "urgency_intimidation",
+        "suspicious_tld"
+      ],
+      "explanation": "HDFC impersonation + credential request + account suspension threat"
+    },
+    {
+      "case_id": "B003",
+      "category": "banking_phishing",
+      "message": "ICICI alert: Unauthorized access detected on your account. Sign in to prevent closure within 24 hours. Click here to verify your identity now.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "bank_impersonation",
+        "phishing_credential_request",
+        "urgency_intimidation",
+        "suspicious_tld"
+      ],
+      "explanation": "ICICI impersonation + unauthorized access + sign-in-to-prevent-closure"
+    },
+    {
+      "case_id": "B004",
+      "category": "banking_phishing",
+      "message": "Bank of Baroda: Your card will be cancelled unless you update your payment details now. Failure to comply will result in account termination.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "bank_impersonation",
+        "phishing_credential_request",
+        "urgency_intimidation"
+      ],
+      "explanation": "Bank of Baroda impersonation + payment details update + failure to comply threat"
+    },
+    {
+      "case_id": "B005",
+      "category": "banking_phishing",
+      "message": "Your SBI account statement for March is available for download. No action required.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate bank statement notification without urgency or credential requests"
+    },
+    {
+      "case_id": "B006",
+      "category": "banking_phishing",
+      "message": "HDFC: Your OTP for login is 789012. This code expires in 10 minutes. Do not share this code with anyone.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate OTP notification that explicitly warns against sharing"
+    },
+    {
+      "case_id": "B007",
+      "category": "banking_phishing",
+      "message": "Your account will be blocked within 2 hours. Verify immediately at http://verify-account.example/secure.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "urgency_intimidation",
+        "phishing_credential_request",
+        "suspicious_tld"
+      ],
+      "explanation": "Account block threat + urgency + credential verification + suspicious TLD, no bank name"
+    },
+    {
+      "case_id": "B008",
+      "category": "banking_phishing",
+      "message": "RBI public advisory: Be cautious of unsolicited calls asking for OTP or PIN. Banks never ask for credentials over phone.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate RBI consumer advisory warning about scams"
+    },
+    {
+      "case_id": "B009",
+      "category": "otp_upi_payment_fraud",
+      "message": "Share your OTP code with our verification agent to confirm your identity and unlock your account.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "otp_scam"
+      ],
+      "explanation": "Direct OTP sharing request - classic social engineering"
+    },
+    {
+      "case_id": "B010",
+      "category": "otp_upi_payment_fraud",
+      "message": "Send me the verification code to complete your login immediately. Your session expires soon.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "otp_scam",
+        "urgency_intimidation"
+      ],
+      "explanation": "OTP code request + session expiry urgency"
+    },
+    {
+      "case_id": "B011",
+      "category": "otp_upi_payment_fraud",
+      "message": "Your UPI account has been frozen. Transfer \u20b95000 to unlock it via PhonePe: user@upi.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "upi_payment_fraud",
+        "urgency_intimidation"
+      ],
+      "explanation": "UPI freeze threat + money transfer request + UPI ID"
+    },
+    {
+      "case_id": "B012",
+      "category": "otp_upi_payment_fraud",
+      "message": "Enter your ATM PIN and OTP below to verify your account immediately. Failure to comply will result in suspension.",
+      "expected_classification": "scam",
+      "expected_risk_band": "critical",
+      "expected_indicators": [
+        "otp_scam",
+        "urgency_intimidation"
+      ],
+      "explanation": "ATM PIN + OTP request combined + failure to comply threat"
+    },
+    {
+      "case_id": "B013",
+      "category": "otp_upi_payment_fraud",
+      "message": "Scan this QR code to receive \u20b95000 instantly into your bank account.",
+      "expected_classification": "scam",
+      "expected_risk_band": "medium",
+      "expected_indicators": [
+        "upi_payment_fraud"
+      ],
+      "explanation": "QR code payment request - common payment fraud vector"
+    },
+    {
+      "case_id": "B014",
+      "category": "otp_upi_payment_fraud",
+      "message": "Your bank OTP for login is 445566. This code expires in 10 minutes. Do not share it with anyone.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate OTP notification with anti-sharing warning"
+    },
+    {
+      "case_id": "B015",
+      "category": "otp_upi_payment_fraud",
+      "message": "UPI payment of \u20b92500 received from merchant. Thank you for using our service.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate UPI payment confirmation"
+    },
+    {
+      "case_id": "B016",
+      "category": "fake_recruitment",
+      "message": "Work from home, no interview required. Pay a registration fee of \u20b9500 to start immediately.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "fake_recruitment"
+      ],
+      "explanation": "Work-from-home + no interview + registration fee to start"
+    },
+    {
+      "case_id": "B017",
+      "category": "fake_recruitment",
+      "message": "Earn $500 per day with our remote data entry job. No experience needed. Join now.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "fake_recruitment"
+      ],
+      "explanation": "Unrealistic earnings + no experience + remote job"
+    },
+    {
+      "case_id": "B018",
+      "category": "fake_recruitment",
+      "message": "Job offer via WhatsApp. Immediate hiring, no interview, training fee applies to join.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "fake_recruitment"
+      ],
+      "explanation": "WhatsApp job offer + immediate hiring + no interview + training fee"
+    },
+    {
+      "case_id": "B019",
+      "category": "fake_recruitment",
+      "message": "We are scheduling your interview for the software engineer position. Please confirm your availability.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate interview scheduling without upfront fees"
+    },
+    {
+      "case_id": "B020",
+      "category": "fake_recruitment",
+      "message": "Congratulations! You have been selected for the marketing role. Offer letter attached.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate job offer letter without suspicious conditions"
+    },
+    {
+      "case_id": "B021",
+      "category": "fake_recruitment",
+      "message": "Remote job confirmation via text. Pay processing fee to begin work immediately. WhatsApp HR.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "fake_recruitment"
+      ],
+      "explanation": "Remote job + processing fee + WhatsApp HR"
+    },
+    {
+      "case_id": "B022",
+      "category": "suspicious_url_credential_harvesting",
+      "message": "Verify your account at http://account-secure.example.xyz/login. Enter your credentials to reactivate.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "phishing_credential_request",
+        "suspicious_tld"
+      ],
+      "explanation": "Credential verification + suspicious .xyz TLD"
+    },
+    {
+      "case_id": "B023",
+      "category": "suspicious_url_credential_harvesting",
+      "message": "Click here to claim your reward: https://bit.ly/3xYz9Ab",
+      "expected_classification": "scam",
+      "expected_risk_band": "medium",
+      "expected_indicators": [
+        "url_shortener"
+      ],
+      "explanation": "URL shortener hiding destination + reward claim"
+    },
+    {
+      "case_id": "B024",
+      "category": "suspicious_url_credential_harvesting",
+      "message": "Reset your password at http://192.168.1.100/reset. Your account will be deleted otherwise.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "phishing_credential_request",
+        "ip_in_url",
+        "urgency_intimidation"
+      ],
+      "explanation": "IP address in URL + password reset + account deletion threat"
+    },
+    {
+      "case_id": "B025",
+      "category": "suspicious_url_credential_harvesting",
+      "message": "Visit our official website at https://www.company-example.com for more information.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate company website URL, no suspicious patterns"
+    },
+    {
+      "case_id": "B026",
+      "category": "suspicious_url_credential_harvesting",
+      "message": "Password reset link sent to your email. Use it within 24 hours at account.example.com/reset.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate password reset at official domain"
+    },
+    {
+      "case_id": "B027",
+      "category": "suspicious_url_credential_harvesting",
+      "message": "Update your billing details at http://update-billing.example.cc/payment now.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "phishing_credential_request",
+        "suspicious_tld"
+      ],
+      "explanation": "Billing details update + suspicious .cc TLD"
+    },
+    {
+      "case_id": "B028",
+      "category": "delivery_parcel_refund",
+      "message": "Your parcel delivery failed. Pay a redelivery fee of \u20b999 at http://delivery-fee.example/track to receive your package.",
+      "expected_classification": "scam",
+      "expected_risk_band": "medium",
+      "expected_indicators": [
+        "advance_fee_fraud",
+        "urgency_intimidation"
+      ],
+      "explanation": "Failed delivery + redelivery fee request + suspicious URL"
+    },
+    {
+      "case_id": "B029",
+      "category": "delivery_parcel_refund",
+      "message": "Refund of \u20b93000 is pending. Click here to claim your refund within 1 hour.",
+      "expected_classification": "scam",
+      "expected_risk_band": "medium",
+      "expected_indicators": [
+        "advance_fee_fraud",
+        "urgency_intimidation"
+      ],
+      "explanation": "Pending refund + click-to-claim + 1-hour urgency"
+    },
+    {
+      "case_id": "B030",
+      "category": "delivery_parcel_refund",
+      "message": "Your package from Amazon is scheduled for delivery today between 2-4 PM. No action needed.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate delivery notification without fees or threats"
+    },
+    {
+      "case_id": "B031",
+      "category": "delivery_parcel_refund",
+      "message": "Customs duty of \u20b9500 must be paid to release your international parcel. Pay now to avoid return.",
+      "expected_classification": "scam",
+      "expected_risk_band": "medium",
+      "expected_indicators": [
+        "advance_fee_fraud",
+        "urgency_intimidation"
+      ],
+      "explanation": "Customs duty fee + pay now to avoid return"
+    },
+    {
+      "case_id": "B032",
+      "category": "delivery_parcel_refund",
+      "message": "Order #ORD-12345 confirmed. Your items will ship within 3 business days.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate order confirmation"
+    },
+    {
+      "case_id": "B033",
+      "category": "investment_financial_fraud",
+      "message": "Guaranteed 50% return on investment in just 30 days. Double your money with our crypto fund.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "investment_fraud"
+      ],
+      "explanation": "Guaranteed high returns + crypto investment + double money"
+    },
+    {
+      "case_id": "B034",
+      "category": "investment_financial_fraud",
+      "message": "High yield profit with low risk. Limited time investment offer. Join our trading group now.",
+      "expected_classification": "scam",
+      "expected_risk_band": "high",
+      "expected_indicators": [
+        "investment_fraud"
+      ],
+      "explanation": "High yield low risk + limited time + trading group"
+    },
+    {
+      "case_id": "B035",
+      "category": "investment_financial_fraud",
+      "message": "Monthly investment newsletter: Market analysis and portfolio strategies for Q3 2026.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate investment newsletter without guaranteed returns"
+    },
+    {
+      "case_id": "B036",
+      "category": "investment_financial_fraud",
+      "message": "Invest $1000 and earn $5000 per week. Assured safe returns. No risk involved.",
+      "expected_classification": "scam",
+      "expected_risk_band": "critical",
+      "expected_indicators": [
+        "investment_fraud"
+      ],
+      "explanation": "Assured returns + no risk + unrealistic earnings"
+    },
+    {
+      "case_id": "B037",
+      "category": "legitimate_messages",
+      "message": "Hello, this is a reminder about our team meeting tomorrow at 2pm in conference room B.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Routine workplace meeting reminder"
+    },
+    {
+      "case_id": "B038",
+      "category": "legitimate_messages",
+      "message": "Your monthly statement is available for download in your online banking portal.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Standard banking statement notification"
+    },
+    {
+      "case_id": "B039",
+      "category": "legitimate_messages",
+      "message": "Please review the Q3 budget report attached to this email and send feedback by Friday.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Standard workplace document review request"
+    },
+    {
+      "case_id": "B040",
+      "category": "legitimate_messages",
+      "message": "Your password was successfully changed. If you did not make this change, contact support.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Security notification with legitimate support contact"
+    },
+    {
+      "case_id": "B041",
+      "category": "legitimate_messages",
+      "message": "Thank you for your payment of $49.99. Your subscription is active until next month.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate payment confirmation"
+    },
+    {
+      "case_id": "B042",
+      "category": "legitimate_messages",
+      "message": "Your account has been verified. Welcome to our platform!",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate account verification welcome message"
+    },
+    {
+      "case_id": "B043",
+      "category": "legitimate_messages",
+      "message": "The urgent delivery of your package is scheduled for today between 2-4pm.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate delivery scheduling (urgent describes timing, not threat)"
+    },
+    {
+      "case_id": "B044",
+      "category": "legitimate_messages",
+      "message": "Free shipping on all orders over $50. Shop now at our store.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Legitimate promotional shipping offer"
+    },
+    {
+      "case_id": "B045",
+      "category": "ambiguous_messages",
+      "message": "Your account needs attention. Please log in to review recent activity.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Generic account attention request without threats or credential demands"
+    },
+    {
+      "case_id": "B046",
+      "category": "ambiguous_messages",
+      "message": "Click here to verify your email address for the newsletter you subscribed to.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Newsletter email verification - common legitimate pattern"
+    },
+    {
+      "case_id": "B047",
+      "category": "ambiguous_messages",
+      "message": "Urgent: Your subscription expires tomorrow. Renew to continue service.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Subscription expiry renewal - normal business communication"
+    },
+    {
+      "case_id": "B048",
+      "category": "ambiguous_messages",
+      "message": "Payment failed. Update your payment method to avoid service interruption.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Payment failure notification - standard business communication"
+    },
+    {
+      "case_id": "B049",
+      "category": "ambiguous_messages",
+      "message": "Please complete your KYC verification when you have time. No deadline applies.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "KYC reminder without urgency or threats"
+    },
+    {
+      "case_id": "B050",
+      "category": "ambiguous_messages",
+      "message": "Free trial ends today. Upgrade to premium to keep access.",
+      "expected_classification": "legitimate",
+      "expected_risk_band": "low",
+      "expected_indicators": [],
+      "explanation": "Free trial upgrade - standard marketing communication"
+    }
+  ]
+}
