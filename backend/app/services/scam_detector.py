@@ -101,8 +101,52 @@ class PhishingDetector(BaseDetector):
                     )
                 )
 
+        # Protective-advisory context: messages warning users NOT to share
+        # credentials (e.g. public RBI advisories) must not be flagged for
+        # merely mentioning the words they warn about.
+        _ADVISORY_CTX = re.compile(
+            r"(?:be cautious|never ask(?:s)?|do not share|banks? never|"
+            r"advisory|public notice|awareness|fraud awareness|"
+            r"consumer protection|beware|warning)",
+            re.IGNORECASE,
+        )
+        # Actual credential solicitation overrides advisory suppression.
+        _CREDENTIAL_SOLICIT = re.compile(
+            r"(?:enter your|provide your|share your|send (?:me|the)\s+)"
+            r"(?:otp|pin|password|credential)",
+            re.IGNORECASE,
+        )
+        is_advisory = bool(_ADVISORY_CTX.search(text)) and not bool(
+            _CREDENTIAL_SOLICIT.search(text)
+        )
+
+        # Subscription/newsletter context: a "click here to verify email"
+        # in a subscription confirmation is not a phishing action.
+        _SUBSCRIPTION_CTX = re.compile(
+            r"(?:newsletter|subscri(?:be|bed|ption)|mailing list|unsubscribe)",
+            re.IGNORECASE,
+        )
+        # Account-threat or payment demand overrides subscription suppression.
+        _ACCOUNT_THREAT = re.compile(
+            r"(?:account (?:has been|will be) (?:suspended|locked|closed|deactivated)|"
+            r"unauthorized|payment|billing|credential|password)",
+            re.IGNORECASE,
+        )
+        is_subscription = bool(_SUBSCRIPTION_CTX.search(text)) and not bool(
+            _ACCOUNT_THREAT.search(text)
+        )
+
         for pattern in self.MEDIUM_PATTERNS:
             for start, end, match in _find_all(text, pattern):
+                # Suppress "click here to verify/confirm/…" only when the
+                # message is a benign subscription confirmation with no
+                # account threat or credential demand.
+                _CLICK_VERIFY = re.compile(
+                    r"click here to (?:verify|confirm|update|reset|activate|claim)",
+                    re.IGNORECASE,
+                )
+                if is_subscription and _CLICK_VERIFY.search(match):
+                    continue  # benign subscription confirmation — suppress signal
                 signals.append(
                     DetectionSignal(
                         signal_type="text",
@@ -148,24 +192,29 @@ class PhishingDetector(BaseDetector):
                         )
                     )
 
-        for kw in self.LOW_KEYWORDS:
-            for start, end, match in _find_all(text, r"\b" + re.escape(kw) + r"\b"):
-                signals.append(
-                    DetectionSignal(
-                        signal_type="text",
-                        name="phishing_keyword",
-                        description=(
-                            f"Message contains the keyword '{match}', which may "
-                            "indicate phishing but requires corroboration."
-                        ),
-                        score=10.0,
-                        weight=1.0,
-                        confidence=0.30,
-                        evidence_snippet=match,
-                        evidence_source="message_body",
-                        metadata={"category": self.category, "keyword": kw},
+        # Suppress low-confidence keyword signals when the message is a
+        # protective public advisory (e.g. RBI warning users not to share OTP).
+        # Such messages mention OTP / PIN / credentials in a protective context
+        # and would otherwise accumulate false keyword hits.
+        if not is_advisory:
+            for kw in self.LOW_KEYWORDS:
+                for start, end, match in _find_all(text, r"\b" + re.escape(kw) + r"\b"):
+                    signals.append(
+                        DetectionSignal(
+                            signal_type="text",
+                            name="phishing_keyword",
+                            description=(
+                                f"Message contains the keyword '{match}', which may "
+                                "indicate phishing but requires corroboration."
+                            ),
+                            score=10.0,
+                            weight=1.0,
+                            confidence=0.30,
+                            evidence_snippet=match,
+                            evidence_source="message_body",
+                            metadata={"category": self.category, "keyword": kw},
+                        )
                     )
-                )
 
         return signals
 
@@ -353,8 +402,32 @@ class OTPScamDetector(BaseDetector):
     def detect(self, text: str) -> List[DetectionSignal]:
         signals: List[DetectionSignal] = []
 
+        # Protective-advisory context guard: a public advisory warning users
+        # NOT to share OTP/PIN (e.g. "Banks never ask for OTP") mentions these
+        # terms in a protective role, not a solicitation role.  Suppress HIGH
+        # signals when advisory language is present and no actual solicitation
+        # is detected.
+        _ADVISORY_CTX = re.compile(
+            r"(?:be cautious|never ask(?:s)?|do not share|banks? never|"
+            r"advisory|public notice|awareness|fraud awareness|"
+            r"consumer protection|beware|warning)",
+            re.IGNORECASE,
+        )
+        _OTP_SOLICIT = re.compile(
+            r"(?:share your|send (?:me|the)\s+|provide your|enter your)\s*"
+            r"(?:otp|one.time.password|verification code|pin)",
+            re.IGNORECASE,
+        )
+        is_advisory = bool(_ADVISORY_CTX.search(text)) and not bool(
+            _OTP_SOLICIT.search(text)
+        )
+
         for pattern in self.HIGH_PATTERNS:
             for start, end, match in _find_all(text, pattern):
+                if is_advisory:
+                    # Protective advisory — the pattern matched a term being
+                    # warned about, not solicited.  Suppress signal.
+                    continue
                 signals.append(
                     DetectionSignal(
                         signal_type="text",
@@ -803,6 +876,96 @@ class UrgencyIntimidationDetector(BaseDetector):
         return signals
 
 
+class DeliveryCustomsFraudDetector(BaseDetector):
+    """Detects parcel delivery fee and customs release extortion scams."""
+
+    category = "delivery_customs_fraud"
+
+    DELIVERY_FAIL_PATTERN = (
+        r"(?:parcel|package|delivery|shipment) (?:delivery )?"
+        r"(?:failed|could not be (?:delivered|completed)|missed|on hold|delayed|pending|suspended|rescheduled)"
+        r"|(?:unable to deliver|failed delivery|missed delivery)"
+    )
+
+    DELIVERY_FEE_PATTERN = (
+        r"(?:pay\s+)?(?:(?:a|the)\s+)?(?:re-?delivery|delivery rescheduling|parcel release)\s+(?:fee|charge|cost)"
+        r"|(?:pay\s+(?:a\s+)?(?:fee|charge)?\s*(?:of\s+)?(?:₹\s*\d+|rs\.?\s*\d+|\$\s*\d+|\d+)?\s*(?:to receive|to release|to reschedule|to clear))"
+    )
+
+    URL_PATTERN = r"https?://\S+|www\.\S+"
+
+    CUSTOMS_FEE_PATTERN = r"(?:customs|import)\s+(?:duty|fee|clearance|tax|charge)"
+
+    CUSTOMS_OBLIGATION_PATTERN = (
+        r"(?:must be paid|is payable|pay\s+(?:customs|duty|fee)?|payment required)\s+"
+        r"(?:to\s+(?:release|clear|deliver)|for\s+clearance)"
+    )
+
+    CUSTOMS_URGENCY_PATTERN = (
+        r"(?:pay\s+now|immediately|within\s+\d+\s*(?:hours?|days?)|avoid\s+return|"
+        r"shipment will be returned|parcel\s+(?:held|detained|on hold)|final\s+notice)"
+    )
+
+    def detect(self, text: str) -> List[DetectionSignal]:
+        signals: List[DetectionSignal] = []
+
+        # B028 rule: Delivery failure + Explicit fee demand + External URL
+        match_fail = re.search(self.DELIVERY_FAIL_PATTERN, text, re.IGNORECASE)
+        match_fee = re.search(self.DELIVERY_FEE_PATTERN, text, re.IGNORECASE)
+        match_url = re.search(self.URL_PATTERN, text, re.IGNORECASE)
+
+        if match_fail and match_fee and match_url:
+            signals.append(
+                DetectionSignal(
+                    signal_type="text",
+                    name="delivery_redelivery_fee_demand",
+                    description=(
+                        "Message claims a package delivery failure and demands an upfront redelivery fee via an external link."
+                    ),
+                    score=35.0,
+                    weight=1.0,
+                    confidence=0.88,
+                    evidence_snippet=match_fee.group(0),
+                    evidence_source="message_body",
+                    metadata={
+                        "category": self.category,
+                        "pattern": "delivery_redelivery_fee_demand",
+                        "delivery_failure_context": match_fail.group(0),
+                        "external_url": match_url.group(0),
+                    },
+                )
+            )
+
+        # B031 rule: Customs fee context + Explicit release payment obligation + Urgency/consequence
+        match_customs = re.search(self.CUSTOMS_FEE_PATTERN, text, re.IGNORECASE)
+        match_oblig = re.search(self.CUSTOMS_OBLIGATION_PATTERN, text, re.IGNORECASE)
+        match_urgency = re.search(self.CUSTOMS_URGENCY_PATTERN, text, re.IGNORECASE)
+
+        if match_customs and match_oblig and match_urgency:
+            signals.append(
+                DetectionSignal(
+                    signal_type="text",
+                    name="customs_release_fee_pressure",
+                    description=(
+                        "Message demands mandatory customs duty or release fee under urgency or threat of parcel return."
+                    ),
+                    score=32.0,
+                    weight=1.0,
+                    confidence=0.86,
+                    evidence_snippet=match_oblig.group(0),
+                    evidence_source="message_body",
+                    metadata={
+                        "category": self.category,
+                        "pattern": "customs_release_fee_pressure",
+                        "customs_context": match_customs.group(0),
+                        "urgency_context": match_urgency.group(0),
+                    },
+                )
+            )
+
+        return signals
+
+
 class ScamDetector:
     """Central deterministic scam detection engine.
 
@@ -821,6 +984,7 @@ class ScamDetector:
             LotteryPrizeDetector(),
             AdvanceFeeDetector(),
             UrgencyIntimidationDetector(),
+            DeliveryCustomsFraudDetector(),
         ]
 
     def detect(self, text: str) -> List[DetectionSignal]:

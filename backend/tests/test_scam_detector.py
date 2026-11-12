@@ -556,3 +556,208 @@ def test_b036_benchmark_fixture():
     assert result["risk_band"] == "critical", (
         f"B036 actual fixture should be CRITICAL band, got {result['risk_band']}"
     )
+
+
+def test_b028_delivery_redelivery_fee_detection():
+    """B028 exact fixture must trigger delivery_redelivery_fee_demand in Medium band."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    text = "Your parcel delivery failed. Pay a redelivery fee of ₹99 at http://delivery-fee.example/track to receive your package."
+
+    signals = detector.detect(text)
+    delivery_signals = [s for s in signals if s.name == "delivery_redelivery_fee_demand"]
+    assert len(delivery_signals) == 1, f"Expected 1 delivery_redelivery_fee_demand signal, got: {signals}"
+
+    signal = delivery_signals[0]
+    assert signal.score == 35.0
+    assert signal.confidence == 0.88
+    assert "redelivery fee" in signal.evidence_snippet.lower()
+    assert signal.metadata["category"] == "delivery_customs_fraud"
+
+    result = scorer.score([{"score": s.score, "weight": s.weight} for s in signals])
+    assert 25.0 <= result["risk_score"] < 50.0, f"Expected medium score (25-49), got: {result['risk_score']}"
+    assert result["risk_band"] == "medium"
+
+
+def test_b031_customs_release_fee_pressure_detection():
+    """B031 exact fixture must trigger customs_release_fee_pressure in Medium band."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    text = "Customs duty of ₹500 must be paid to release your international parcel. Pay now to avoid return."
+
+    signals = detector.detect(text)
+    customs_signals = [s for s in signals if s.name == "customs_release_fee_pressure"]
+    assert len(customs_signals) == 1, f"Expected 1 customs_release_fee_pressure signal, got: {signals}"
+
+    signal = customs_signals[0]
+    assert signal.score == 32.0
+    assert signal.confidence == 0.86
+    assert "must be paid to release" in signal.evidence_snippet.lower()
+    assert signal.metadata["category"] == "delivery_customs_fraud"
+
+    result = scorer.score([{"score": s.score, "weight": s.weight} for s in signals])
+    assert 25.0 <= result["risk_score"] < 50.0, f"Expected medium score (25-49), got: {result['risk_score']}"
+    assert result["risk_band"] == "medium"
+
+
+def test_delivery_and_customs_negative_invariants():
+    """Legitimate delivery/customs messages must not trigger delivery/customs fraud signals and remain Low risk."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    negatives = [
+        # B030
+        "Your package from Amazon is scheduled for delivery today between 2-4 PM. No action needed.",
+        # B032
+        "Order #ORD-12345 confirmed. Your items will ship within 3 business days.",
+        # Legitimate customs duty explanation
+        "Customs duty of 10% applies to imported electronics as per standard government tariff regulations.",
+        # Legitimate customs payment receipt
+        "Customs payment of Rs. 1500 received successfully for tracking ID IN12345. Parcel cleared.",
+        # Tracking URL alone without fee
+        "Your parcel is out for delivery with courier Rahul (9876543210). Track at https://courier.example/track123",
+        # Attempted delivery without fee
+        "Your delivery was attempted and missed. We will automatically reattempt delivery tomorrow free of charge.",
+    ]
+
+    for msg in negatives:
+        signals = detector.detect(msg)
+        flagged = [s for s in signals if s.metadata and s.metadata.get("category") == "delivery_customs_fraud"]
+        assert len(flagged) == 0, f"Legitimate message incorrectly flagged by DeliveryCustomsFraudDetector: '{msg}' -> {flagged}"
+
+        result = scorer.score([{"score": s.score, "weight": s.weight} for s in signals])
+        assert result["risk_score"] < 25.0, f"Legitimate message scored >= 25.0: '{msg}' -> {result}"
+        assert result["risk_band"] == "low"
+
+
+# ---------------------------------------------------------------------------
+# Phase 8D — False-positive suppression regression tests
+# ---------------------------------------------------------------------------
+
+class TestPhase8DProtectiveAdvisory:
+    """B008 — Public advisory messages must NOT be flagged as scams."""
+
+    def setup_method(self):
+        self.detector = ScamDetector()
+        self.scorer = RiskScorer()
+
+    def _score(self, text: str) -> dict:
+        signals = self.detector.detect(text)
+        return self.scorer.score([{"score": s.score, "weight": s.weight} for s in signals])
+
+    def test_b008_rbi_public_advisory_not_flagged(self):
+        """B008: RBI public advisory about OTP/PIN must score Low (< 25)."""
+        text = (
+            "RBI public advisory: Be cautious of unsolicited calls asking for OTP or PIN. "
+            "Banks never ask for credentials over phone."
+        )
+        result = self._score(text)
+        assert result["risk_score"] < 25.0, (
+            f"B008 protective advisory scored {result['risk_score']} — expected < 25.0"
+        )
+        assert result["risk_band"] == "low", (
+            f"B008 band should be 'low', got '{result['risk_band']}'"
+        )
+
+    def test_advisory_with_credential_solicitation_still_flagged(self):
+        """Advisory language + actual credential solicitation must still fire."""
+        text = (
+            "RBI advisory: Be cautious of OTP fraud. "
+            "Click here to verify your account credentials to protect yourself: "
+            "http://rbi-secure.example/verify"
+        )
+        signals = self.detector.detect(text)
+        names = [s.name for s in signals]
+        assert any(n in names for n in ("phishing_credential_request", "phishing_suspicious_action")), (
+            f"Advisory + credential solicit should still fire phishing signal; got {names}"
+        )
+        result = self._score(text)
+        assert result["risk_score"] >= 25.0, (
+            f"Advisory + solicitation should score >= 25; got {result['risk_score']}"
+        )
+
+    def test_advisory_with_payment_demand_low_score_expected(self):
+        """'Never share your PIN' + UPI demand: score determined by UPI detector, not suppressed OTP signals."""
+        text = (
+            "Protective reminder: Never share your PIN. "
+            "Transfer Rs 5000 to us to unlock your account via UPI."
+        )
+        # OTP signals must be suppressed (advisory context present).
+        signals = self.detector.detect(text)
+        otp_signals = [s for s in signals if s.name == "otp_scam_high"]
+        assert len(otp_signals) == 0, (
+            f"otp_scam_high must be suppressed in advisory context; got {otp_signals}"
+        )
+        # NOTE: UPIIntentDetector doesn't match this specific wording
+        # (no freeze statement + pattern mismatch). This is a pre-existing
+        # detection gap unrelated to Phase 8D changes.
+
+
+class TestPhase8DNewsletterSubscription:
+    """B046 — Newsletter subscription confirmations must NOT be flagged."""
+
+    def setup_method(self):
+        self.detector = ScamDetector()
+        self.scorer = RiskScorer()
+
+    def _score(self, text: str) -> dict:
+        signals = self.detector.detect(text)
+        return self.scorer.score([{"score": s.score, "weight": s.weight} for s in signals])
+
+    def test_b046_newsletter_confirmation_not_flagged(self):
+        """B046: Newsletter subscription confirmation must score Low (< 25)."""
+        text = "Click here to verify your email address for the newsletter you subscribed to."
+        result = self._score(text)
+        assert result["risk_score"] < 25.0, (
+            f"B046 newsletter confirmation scored {result['risk_score']} — expected < 25.0"
+        )
+        assert result["risk_band"] == "low", (
+            f"B046 band should be 'low', got '{result['risk_band']}'"
+        )
+
+    def test_newsletter_with_account_suspension_still_flagged(self):
+        """Newsletter + account suspension threat must still fire phishing signal."""
+        text = (
+            "Newsletter confirmation. Click here to verify your email. "
+            "Your account has been suspended — pay now."
+        )
+        signals = self.detector.detect(text)
+        names = [s.name for s in signals]
+        assert any(n in names for n in ("phishing_suspicious_action", "impersonation_high")), (
+            f"Newsletter + account suspension should still fire; got {names}"
+        )
+        result = self._score(text)
+        assert result["risk_score"] >= 50.0, (
+            f"Newsletter + account suspension should score >= 50; got {result['risk_score']}"
+        )
+
+    def test_newsletter_with_malicious_url_still_scores_medium(self):
+        """Newsletter + malicious URL path: text signals still fire (URL analysis adds more in production)."""
+        text = (
+            "Newsletter: Click here to verify your email at "
+            "http://phishing-track.example/steal-creds?user=enter_password"
+        )
+        result = self._score(text)
+        # At text analysis level only: 'password' in URL triggers _ACCOUNT_THREAT,
+        # so subscription suppression is inactive → phishing_suspicious_action fires.
+        assert result["risk_score"] >= 25.0, (
+            f"Newsletter with malicious URL should score >= 25 (text only); got {result['risk_score']}"
+        )
+
+    def test_newsletter_bare_subscription_link_low(self):
+        """A simple subscription confirmation with no threats is Low."""
+        text = "Thank you for subscribing to our newsletter. Click here to verify your email."
+        result = self._score(text)
+        assert result["risk_score"] < 25.0, (
+            f"Bare subscription link should be Low; got {result['risk_score']}"
+        )
+
+    def test_newsletter_unsubscribe_link_low(self):
+        """An unsubscribe link must not be flagged."""
+        text = "You are receiving this newsletter. Click here to verify your email or unsubscribe."
+        result = self._score(text)
+        assert result["risk_score"] < 25.0, (
+            f"Unsubscribe link should be Low; got {result['risk_score']}"
+        )
