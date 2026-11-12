@@ -149,6 +149,30 @@ class InvestigationEngine:
 
             signals: List[DetectionSignal] = list(analysis_result)
 
+            # --- URL extraction and analysis ---
+            # Extract URLs from the message text and analyze them separately.
+            # A URL alone is not proof of fraud; URLAnalyzer applies heuristics
+            # (suspicious TLD, IP address, shortener, etc.) and RiskScorer
+            # aggregates the result.
+            import re as _re
+            url_pattern = _re.compile(
+                r"https?://[^\s<>\"]+|www\.[^\s<>\"]+",
+                _re.IGNORECASE,
+            )
+            for um in url_pattern.finditer(normalized):
+                extracted_url = um.group(0)
+                # Normalize: ensure scheme for URLs like www.example.com
+                if not extracted_url.startswith(("http://", "https://")):
+                    extracted_url = "http://" + extracted_url
+                url_analysis = self.url_analyzer.analyze(extracted_url)
+                url_signals = url_analysis.get("signals", [])
+                if url_signals:
+                    for us in url_signals:
+                        # Override evidence source to reflect URL-in-text context
+                        us.evidence_source = "url_in_message"
+                        us.evidence_snippet = extracted_url
+                    signals.extend(url_signals)
+
             scoring_result = self.risk_scorer.score(
                 [{"score": s.score, "weight": s.weight} for s in signals]
             )

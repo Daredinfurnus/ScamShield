@@ -71,6 +71,14 @@ class PhishingDetector(BaseDetector):
 
     LOW_KEYWORDS = ["phishing", "credential", "login", "password", "account"]
 
+    # KYC-specific patterns — only flagged when combined with urgency/threat.
+    # Consolidated into one pattern to avoid double-counting overlapping matches
+    # (e.g. "incomplete KYC verification" would match both "incomplete KYC" and
+    # "KYC verification").
+    KYC_PATTERNS = [
+        r"(?:incomplete|pending|outdated|expired) kyc",
+    ]
+
     def detect(self, text: str) -> List[DetectionSignal]:
         signals: List[DetectionSignal] = []
 
@@ -112,6 +120,34 @@ class PhishingDetector(BaseDetector):
                     )
                 )
 
+        # KYC-specific detection: only flag when combined with urgency/threat,
+        # never on a bare "KYC" mention alone (legitimate banks do send KYC reminders).
+        text_lower = text.lower()
+        has_urgency = bool(re.search(
+            r"(?:urgent|immediately|within \d+ (?:hour|hours)|blocked|suspended|failure to comply)",
+            text, re.IGNORECASE,
+        ))
+        if has_urgency:
+            for pattern in self.KYC_PATTERNS:
+                for start, end, match in _find_all(text, pattern):
+                    signals.append(
+                        DetectionSignal(
+                            signal_type="text",
+                            name="phishing_kyc_pressure",
+                            description=(
+                                "Message combines KYC verification pressure with "
+                                "urgency or account-threat language, a common "
+                                "phishing tactic."
+                            ),
+                            score=25.0,
+                            weight=1.0,
+                            confidence=0.60,
+                            evidence_snippet=text[start:end],
+                            evidence_source="message_body",
+                            metadata={"category": self.category, "pattern": "kyc"},
+                        )
+                    )
+
         for kw in self.LOW_KEYWORDS:
             for start, end, match in _find_all(text, r"\b" + re.escape(kw) + r"\b"):
                 signals.append(
@@ -141,7 +177,7 @@ class FakeRecruitmentDetector(BaseDetector):
 
     HIGH_PATTERNS = [
         r"(?:work from home|remote job) (?:no experience|no interview|immediate)",
-        r"earn (?:\\$|₹|rs|rupees|dollars)?\\s*\\d+ (?:per|a) (?:day|hour|week)",
+        r"earn (?:\\$|₹|rs|rupees|dollars)?\\s*\d+ (?:per|a) (?:day|hour|week)",
         r"job (?:offer|confirmation) (?:via|through) (?:whatsapp|telegram|text)",
         r"pay (?:a|registration|processing|training) fee to (?:start|join|begin)",
     ]
@@ -203,20 +239,48 @@ class UPIIntentDetector(BaseDetector):
     category = "upi_payment_fraud"
 
     HIGH_PATTERNS = [
-        r"(?:send|transfer|pay) (?:money|₹|rs|rupees) (?:to|via) (?:upi|phonepe|gpay|paytm)",
-        r"(?:upi|upi id|vpa) (?:is|:)\\s*[\\w.]+@[\\w]+",
+        r"(?:send|transfer|pay) (?:money|₹|rs|rupees|\$\d+|\d+) (?:to|via) (?:upi|phonepe|gpay|paytm)",
+        r"(?:upi|upi id|vpa) (?:is|:)\s*[\w.]+@[\w]+",
         r"scan (?:this|the) qr (?:code|to pay|to receive)",
         r"money (?:will be|has been) (?:credited|transferred|refunded)",
     ]
 
     MEDIUM_PATTERNS = [
-        r"(?:upi|payment|transfer) (?:request|link|request)",
+        r"(?:upi|payment|transfer) (?:request|link)",
         r"click (?:to|for) (?:receive|claim|get) (?:money|₹|rs|cash)",
-        r"(?:your|our) (?:upi|account) (?:is|has been) (?:blocked|suspended|frozen)",
     ]
 
     def detect(self, text: str) -> List[DetectionSignal]:
         signals: List[DetectionSignal] = []
+
+        # Contextual UPI Freeze + Demand to unlock/restore:
+        # Require BOTH a freeze/suspension/block threat AND a demand to transfer/send/pay to unlock/release
+        has_freeze_threat = bool(re.search(
+            r"(?:account|upi|access|service) (?:has been|is) (?:frozen|blocked|suspended|locked)",
+            text,
+            re.IGNORECASE,
+        ))
+        unlock_payment_match = re.search(
+            r"(?:transfer|send|pay) (?:₹\s*\d+|rs\.?\s*\d+|rupees\s*\d+|\$\s*\d+|\d+|money)?\s*(?:to unlock|to release|to unblock|to restore)",
+            text,
+            re.IGNORECASE,
+        )
+        if has_freeze_threat and unlock_payment_match:
+            signals.append(
+                DetectionSignal(
+                    signal_type="text",
+                    name="upi_freeze_extortion",
+                    description=(
+                        "Message claims account/UPI has been frozen and demands a monetary transfer to unlock or restore access."
+                    ),
+                    score=55.0,
+                    weight=1.0,
+                    confidence=0.85,
+                    evidence_snippet=unlock_payment_match.group(0),
+                    evidence_source="message_body",
+                    metadata={"category": self.category, "pattern": "freeze_unlock_extortion"},
+                )
+            )
 
         for pattern in self.HIGH_PATTERNS:
             for start, end, match in _find_all(text, pattern):
@@ -266,9 +330,12 @@ class OTPScamDetector(BaseDetector):
 
     HIGH_PATTERNS = [
         r"share your (?:otp|one.time.password|verification code)",
-        r"send (?:me|the) (?:otp|code) (?:to|via)",
         r"(?:otp|code) (?:is|was) (?:sent|delivered) to your",
-        r"do not share (?:your )?(?:otp|password)",
+        r"enter your (?:atm )?pin",
+        r"provide your (?:atm )?pin",
+        r"(?:atm )?pin.{0,30}?otp|otp.{0,30}?(?:atm )?pin",
+        # Contextual OTP solicitation: requesting code / verification code
+        r"send (?:me\s+)?(?:the\s+)?(?:verification code|code|otp)(?:.*?(?:to complete|immediately|for login|to login|to|via))?",
     ]
 
     # MEDIUM patterns specifically target scammy OTP requests, not legitimate OTP notifications
@@ -276,6 +343,11 @@ class OTPScamDetector(BaseDetector):
         r"otp (?:required|needed|verification)",
         r"(?:verification|otp) code (?:request|sent) (?:by|via|to you)",
         r"(?:enter|provide|input) (?:your )?otp (?:to|for)",
+        # Legitimate OTP notifications should not be flagged
+        r"your otp (?:is|expires|has been sent)",
+        r"otp code (?:for|to) (?:login|verification)",
+        # NEW: Legitimate OTP expiration notifications
+        r"your session (?:expires|expired) (?:soon|now)",
     ]
 
     def detect(self, text: str) -> List[DetectionSignal]:
@@ -334,6 +406,15 @@ class ImpersonationDetector(BaseDetector):
 
     category = "impersonation"
 
+    # Common bank / financial institution names that may be impersonated.
+    # A bare mention of a bank name is NOT fraud — it must appear in a
+    # suspicious context (urgency, verification request, threat).
+    BANK_NAMES = [
+        "sbi", "hdfc", "icici", "axis", "kotak", "bank of baroda",
+        "canara bank", "punjab national bank", "pnb", "indusind",
+        "federal bank", "idbi", "rbi", "reserve bank",
+    ]
+
     HIGH_PATTERNS = [
         r"(?:this is|i am|we are) (?:from|at|representing) (?:the )?(?:bank|police|irb|cbi|rbi|customs)",
         r"(?:your|our) (?:account|card|aadhaar|pan) (?:has been|will be) (?:blocked|suspended|cancelled)",
@@ -388,6 +469,46 @@ class ImpersonationDetector(BaseDetector):
                     )
                 )
 
+        # Bank-name impersonation: only flag when a bank name appears in a
+        # suspicious context (urgency + verification/threat), never on a bare
+        # mention alone.
+        text_lower = text.lower()
+        has_urgency = bool(re.search(
+            r"(?:urgent|immediately|within \d+ (?:hour|hours)|blocked|suspended|failure to comply)",
+            text, re.IGNORECASE,
+        ))
+        has_verification_or_threat = bool(re.search(
+            r"(?:verify|confirm|kyc|atm pin|otp|suspended|blocked|failure to comply)",
+            text, re.IGNORECASE,
+        ))
+        if has_urgency and has_verification_or_threat:
+            for bank in self.BANK_NAMES:
+                if bank in text_lower:
+                    start = text_lower.find(bank)
+                    end = start + len(bank)
+                    signals.append(
+                        DetectionSignal(
+                            signal_type="text",
+                            name="bank_impersonation",
+                            description=(
+                                f"Message references '{bank}' in a high-pressure "
+                                "verification or account-threat context, consistent "
+                                "with bank impersonation fraud."
+                            ),
+                            score=35.0,
+                            weight=1.0,
+                            confidence=0.70,
+                            evidence_snippet=text[start:end],
+                            evidence_source="message_body",
+                            metadata={
+                                "category": self.category,
+                                "bank": bank,
+                                "pattern": "bank_impersonation",
+                            },
+                        )
+                    )
+                    break  # only one bank-impersonation signal per message
+
         return signals
 
 
@@ -397,16 +518,59 @@ class InvestmentFraudDetector(BaseDetector):
     category = "investment_fraud"
 
     HIGH_PATTERNS = [
-        r"(?:guaranteed|assured|fixed) return (?:of|on) (?:\\d+%|investment)",
-        r"double your (?:money|investment) in",
-        r"(?:invest|put) (?:money|\\d+) (?:and|to) (?:earn|get|make) (?:\\d+%|profit)",
-        r"crypto (?:investment|trading|opportunity) (?:guaranteed|assured|safe)",
+        # Guaranteed returns with percentage - e.g. "guaranteed 50% return"
+        r"guaranteed (?:\d+%|assured|fixed|high) (?:return|profit|earnings|income|yield)",
+        r"(?:assured|fixed) (?:\d+%|guaranteed) (?:return|profit|earnings|income|yield)",
+        # Guaranteed returns - plain phrase
+        r"guaranteed (?:returns?|profits?|earnings?|income)",
+        r"(?:assured|fixed) (?:returns?|profits?|earnings?|income)",
+        # Unrealistic money multiplication
+        r"(?:double|triple|10x|20x|50x) (?:your )?money (?:in| within) (?:\d+ )?weeks?",
+        r"(?:double|triple|10x|20x|50x) (?:your )?investment (?:in| within) (?:\d+ )?weeks?",
+        r"(?:double|triple|10x|20x|50x) (?:your )?money in (?:\d+ )?days?",
+        # Earnings with time period
+        r"(?:earn|make) (?:\d+ )?(?:per )?(?:day|week|month|year) (?:guaranteed)?",
+        r"returns? (?:of| '? s)? (?:\d+ )?(?:per )?(?:day|week|month|year) (?:guaranteed|assured)?",
+        # Risk-free investment claims - HIGH category
+        r"no (?:risk-free|no )risk (?:investment|opportunity|plan)",
+        r"risk-free (?:investment|opportunity|plan) (?:with)? (?:guaranteed|no )?risk",
+        r"guaranteed (?:returns?|profit|earnings?) with (?:no )?risk",
+        r"unsecured (?:investment|trading|profits)",
+        r"risk-free earnings",
+        r"earn \$\d+ (?:per )?(?:day|week|month|year)",
+        r"assured (?:safe|guaranteed|high) (?:return|profit|earnings|income)",
+        r"no risk (?:involved|of )?",
+        r"unlimited (?:profits|returns|earnings)",
+        r"double your (?:money|investment)",
+        r"double (?:your )?(?:money|investment) in \\d+ days?",
+        # Crypto investment fraud
+        # Crypto investment fraud
+        r"crypto (?:investment|trading|opportunity) (?:guaranteed|assured|safe|high[- ]return)",
+        r"crypto (?:ico|token) (?:with)? (?:guaranteed|assured)? (?:unrealistic|high )?returns?",
+        r"crypto (?:ico|token) (?:with)? (?:guaranteed|assured)? (?:unrealistic|high )?returns?",
+        r"crypto (?:ico|token) (?:with)? (?:guaranteed|assured)? (?:unrealistic|high )?returns?",
+        r"crypto (?:investment|trading) with (?:guaranteed|assured|hidden|unsafe) returns?",
+        r"crypto (?:investment|trading|opportunity)",
+        r"token (?:sale|launch|offering) (?:guaranteed|assured|high[- ]return)",
+        r"unrealistic (?:returns|earnings|profits|income)",
+        r"no[- ]risk (?:claims?|guarantees?)",
     ]
 
     MEDIUM_PATTERNS = [
-        r"(?:limited time|exclusive) investment (?:opportunity|offer)",
-        r"high (?:return|yield|profit) (?:with|and) low risk",
-        r"join our (?:investment|trading) (?:group|team|community)",
+        # Guaranteed returns with no percentage - e.g. "guaranteed returns"
+        r"(?:guaranteed|assured|fixed) (?:returns?|profits?|earnings?) (?:with|and)? (?:no )?risk",
+        # Limited time/exclusive offers
+        r"(?:limited time|exclusive) (?:investment|trading) (?:opportunity|offer|plan|deal)",
+        r"special (?:investment|trading) (?:plan|program|deal)",
+        # High return + low risk combined
+        r"high (?:return|yield|profit) (?:with| and) (?:low|reduced|minimal) risk",
+        r"high (?:return|yield|profit) with guaranteed (?:no )?risk",
+        # Join our investment group
+        r"join our (?:investment|trading) (?:group|team|community|network)",
+        # Risk-free claims
+        r"(?:no |zero )risk (?:investment|opportunity|plan)",
+        r"(?:no |zero )risk of (?:losing|loss)",
+        r"guaranteed (?:profit|return) with (?:no )?risk",
     ]
 
     def detect(self, text: str) -> List[DetectionSignal]:
@@ -524,12 +688,12 @@ class AdvanceFeeDetector(BaseDetector):
         r"pay (?:a|the|processing|registration|transfer) fee (?:to|before|for)",
         r"(?:wire|transfer|send) (?:money|₹|rs|\\$) (?:to|via) (?:unlock|release|claim)",
         r"(?:inheritance|fund|estate|million) (?:is|was) (?:held|frozen|stuck)",
-        r"assist (?:with|in) (?:transferring|moving) (?:\\d+|money|funds)",
+        r"assist (?:with|in) (?:transferring|moving) (?:\d+|money|funds)",
     ]
 
     MEDIUM_PATTERNS = [
         r"(?:processing|administrative|legal) fee",
-        r"reward of (?:\\d+|\\d+%|a share)",
+        r"reward of (?:\d+|\d+%|a share)",
         r"trusted (?:partner|associate|representative)",
     ]
 
@@ -583,7 +747,7 @@ class UrgencyIntimidationDetector(BaseDetector):
     category = "urgency_intimidation"
 
     HIGH_PATTERNS = [
-        r"(?:act|respond|reply) (?:now|immediately|within \\d+ (?:hour|hours|minute|minutes))",
+        r"(?:act|respond|reply) (?:now|immediately|within \d+ (?:hour|hours|minute|minutes))",
         r"(?:account|service|access) (?:will be|is) (?:suspended|closed|terminated|deleted)",
         r"failure to (?:respond|comply|act) (?:will|may) (?:result in|lead to)",
         r"(?:urgent|immediate) (?:action|attention|response) required",

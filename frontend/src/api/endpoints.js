@@ -6,4 +6,7 @@ export const API = {
   analyzeImage: '/api/analysis/image',
   entities: (id) => `/api/investigations/${id}/entities`,
   reports: (id) => `/api/investigations/${id}/report`,
+  aiStatus: '/api/ai/status',
+  aiExplain: (id) => `/api/ai/investigations/${id}/explain`,
+  aiReport: (id) => `/api/ai/investigations/${id}/report`,
 }

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base
-from app.api import investigations, analysis, entities, reports
+from app.api import ai_routes, investigations, analysis, entities, reports
 
 # Import all model modules so SQLAlchemy can resolve inter-model
 # string relationships (e.g. Investigation.findings -> Finding) before
@@ -28,6 +28,7 @@ app.include_router(investigations.router, prefix="/api/investigations")
 app.include_router(analysis.router, prefix="/api/analysis")
 app.include_router(entities.router, prefix="/api/investigations/{investigation_id}/entities")
 app.include_router(reports.router, prefix="/api/investigations/{investigation_id}/report")
+app.include_router(ai_routes.router, prefix="/api")
 
 
 @app.get("/health")

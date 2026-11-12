@@ -1,3 +1,5 @@
+from fastapi.testclient import TestClient
+
 """Tests for the Investigation Engine and related Phase 2 components.
 
 Covers:
@@ -16,7 +18,6 @@ Covers:
 """
 from fastapi.testclient import TestClient
 from app.main import app
-from app.database import SessionLocal, engine, Base
 from app.services.investigation_engine import InvestigationEngine
 from app.services.risk_scoring import RiskScorer
 from app.services.detection_signal import DetectionSignal
@@ -24,21 +25,14 @@ from app.services.evidence_service import EvidenceService
 from app.services.text_analysis import TextAnalyzer
 
 
-def setup_function(function):
-    Base.metadata.create_all(bind=engine)
 
 
-def teardown_function(function):
-    Base.metadata.drop_all(bind=engine)
 
 
-def test_client():
-    return TestClient(app)
 
-
-def test_valid_text_investigation():
+def test_valid_text_investigation(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         result = engine.analyze_text(
             text="URGENT: Your account has been suspended. Click here to verify your password now!",
@@ -59,12 +53,12 @@ def test_valid_text_investigation():
         assert result["findings"][0]["evidence_source"] == "message_body"
         assert result["created_at"] is not None
     finally:
-        db.close()
+        pass
 
 
-def test_empty_input_rejected():
+def test_empty_input_rejected(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         try:
             engine.analyze_text(text="", title="Empty", db=db)
@@ -72,12 +66,12 @@ def test_empty_input_rejected():
         except ValueError as e:
             assert "required" in str(e).lower() or "empty" in str(e).lower()
     finally:
-        db.close()
+        pass
 
 
-def test_oversized_input_rejected():
+def test_oversized_input_rejected(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         oversized = "x" * (EvidenceService.MAX_INPUT_SIZE + 1)
         try:
@@ -86,12 +80,12 @@ def test_oversized_input_rejected():
         except ValueError as e:
             assert "exceeds" in str(e).lower() or "maximum" in str(e).lower()
     finally:
-        db.close()
+        pass
 
 
-def test_risk_score_persistence():
+def test_risk_score_persistence(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         result = engine.analyze_text(
             text="Test message for persistence",
@@ -108,12 +102,12 @@ def test_risk_score_persistence():
         assert inv.risk_score == result["risk_score"]
         assert inv.risk_band == result["risk_band"]
     finally:
-        db.close()
+        pass
 
 
-def test_risk_band_persistence():
+def test_risk_band_persistence(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         result = engine.analyze_text(
             text="Test message for band persistence",
@@ -127,12 +121,12 @@ def test_risk_band_persistence():
         assert inv.risk_band == result["risk_band"]
         assert inv.risk_band in ("low", "medium", "high", "critical")
     finally:
-        db.close()
+        pass
 
 
-def test_finding_persistence():
+def test_finding_persistence(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         result = engine.analyze_text(
             text="URGENT: Your account has been suspended. Verify your password now!",
@@ -150,9 +144,9 @@ def test_finding_persistence():
         db.close()
 
 
-def test_evidence_traceability():
+def test_evidence_traceability(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         test_text = "URGENT: Your account has been suspended. Click here to verify your password now!"
         result = engine.analyze_text(text=test_text, title="Traceability", db=db)
@@ -165,9 +159,9 @@ def test_evidence_traceability():
         db.close()
 
 
-def test_risk_scorer_invoked():
+def test_risk_scorer_invoked(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         result = engine.analyze_text(
             text="Test message to verify RiskScorer invocation",
@@ -204,15 +198,15 @@ def test_llm_cannot_override_risk():
 
 
 def test_missing_investigation_returns_404():
-    client = test_client()
+    client = TestClient(app)
     response = client.get("/api/investigations/99999")
     assert response.status_code == 404
     assert "not found" in response.json()["detail"].lower()
 
 
-def test_failed_detector_not_verified_low_risk():
+def test_failed_detector_not_verified_low_risk(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         result = engine.analyze_text(
             text="Valid message after failure",
@@ -227,7 +221,7 @@ def test_failed_detector_not_verified_low_risk():
 
 
 def test_api_analyze_text_endpoint():
-    client = test_client()
+    client = TestClient(app)
     response = client.post(
         "/api/analysis/text",
         json={"text": "Your account will be closed unless you act now!"},
@@ -248,7 +242,7 @@ def test_api_analyze_text_endpoint():
 
 
 def test_api_analyze_text_empty_input():
-    client = test_client()
+    client = TestClient(app)
     response = client.post(
         "/api/analysis/text",
         json={"text": ""},
@@ -258,7 +252,7 @@ def test_api_analyze_text_empty_input():
 
 
 def test_api_analyze_url_endpoint():
-    client = test_client()
+    client = TestClient(app)
     response = client.post(
         "/api/analysis/url",
         json={"url": "http://suspicious-example.com/login"},
@@ -272,7 +266,7 @@ def test_api_analyze_url_endpoint():
 
 
 def test_api_analyze_image_endpoint():
-    client = test_client()
+    client = TestClient(app)
     response = client.post(
         "/api/analysis/image",
         json={},
@@ -286,7 +280,7 @@ def test_api_analyze_image_endpoint():
 
 
 def test_api_investigation_list():
-    client = test_client()
+    client = TestClient(app)
     client.post(
         "/api/analysis/text",
         json={"text": "Test for listing"},
@@ -298,7 +292,7 @@ def test_api_investigation_list():
 
 
 def test_api_investigation_retrieval():
-    client = test_client()
+    client = TestClient(app)
     create_resp = client.post(
         "/api/analysis/text",
         json={"text": "Test for retrieval"},
@@ -357,7 +351,7 @@ def test_evidence_service_size_limit():
 
 
 def test_api_investigation_entities():
-    client = test_client()
+    client = TestClient(app)
     create_resp = client.post(
         "/api/analysis/text",
         json={"text": "Test for entities"},
@@ -376,9 +370,9 @@ def test_empty_signals_handling():
     assert result["risk_band"] == "low"
 
 
-def test_whitespace_only_input_rejected():
+def test_whitespace_only_input_rejected(db_session):
     engine = InvestigationEngine()
-    db = SessionLocal()
+    db = db_session
     try:
         try:
             engine.analyze_text(text="   \n\t  ", title="Whitespace", db=db)
@@ -386,4 +380,4 @@ def test_whitespace_only_input_rejected():
         except ValueError:
             pass
     finally:
-        db.close()
+        pass

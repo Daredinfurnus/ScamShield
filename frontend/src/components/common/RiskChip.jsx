@@ -1,3 +1,5 @@
+import { Badge } from './Badge'
+
 export function RiskChip({ score, className = '' }) {
   let band = 'low'
   if (score >= 75) band = 'critical'

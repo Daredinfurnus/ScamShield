@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 
 const RISK_COLORS = {
-  low: '#22c55e',
-  medium: '#f59e0b',
-  high: '#fb923c',
-  critical: '#ef4444',
+  low: '#9CAF88',
+  medium: '#CA9E48',
+  high: '#CD6C4A',
+  critical: '#B25C60',
 }
 
 export function RiskGauge({ score, className = '' }) {
@@ -57,8 +57,8 @@ export function RiskGauge({ score, className = '' }) {
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-3xl font-bold text-white">{Math.round(displayScore)}</span>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">/ 100</span>
+            <span className="text-3xl font-bold text-text-primary">{Math.round(displayScore)}</span>
+            <span className="text-xs text-text-secondary uppercase tracking-wider">/ 100</span>
           </div>
         </div>
         <div className="mt-4">

@@ -49,6 +49,10 @@ SCAM_MESSAGES: List[Tuple[str, str]] = [
     ("Act now or your account will be terminated within 2 hours!", "scam", "urgency_intimidation"),
     ("Immediate response required. Failure to act will lead to service closure.", "scam", "urgency_intimidation"),
     ("Urgent action needed. Your access will be deleted if you don't reply now.", "scam", "urgency_intimidation"),
+    # Investment fraud test cases - B033 and B036 (benchmark cases)
+    ("Guaranteed high returns, crypto investment and double-money claims.", "scam", "investment_fraud"),
+    ("Assured returns, no-risk claims and unrealistic earnings.", "scam", "investment_fraud"),
+    ("URGENT: Your SBI account will be BLOCKED within 2 hours due to incomplete KYC verification. To avoid permanent suspension, verify your details immediately using the secure link below: http://sbi-kyc-update.xyz/verify Enter your account number, ATM PIN and OTP to complete verification. Failure to comply will result in account suspension and loss of access to UPI services. – SBI Customer Support Team", "scam", "phishing_bank_impersonation"),
 ]
 
 LEGITIMATE_MESSAGES: List[Tuple[str, str]] = [
@@ -62,6 +66,17 @@ LEGITIMATE_MESSAGES: List[Tuple[str, str]] = [
     ("The urgent delivery of your package is scheduled for today between 2-4pm.", "legit", "delivery"),
     ("Free shipping on all orders over $50. Shop now at our store.", "legit", "promo"),
     ("Your payment of $100 was received. Thank you for your business.", "legit", "payment_received"),
+    ("Your SBI account statement for March is available for download. No action required.", "legit", "bank_statement"),
+]
+
+# Legitimate investment counterexamples — must NOT be flagged as scam
+LEGIT_INVESTMENTS: List[Tuple[str, str]] = [
+    ("Historical market performance shows average annual returns of 7% over the last 50 years.", "legitimate"),
+    ("Last year's investment returned 15%. This year looks promising but carries risk.", "legitimate"),
+    ("Bitcoin is a decentralized digital currency. Its value is determined by market supply and demand.", "legitimate"),
+    ("Warning: Many investment platforms promise guaranteed returns but are actually frauds. Be cautious.", "scam"),
+    ("Diversify your portfolio across stocks, bonds, and real estate. No investment is without risk.", "legitimate"),
+    ("This savings account offers a fixed 3% annual return with FDIC insurance up to $250,000.", "legitimate"),
 ]
 
 AMBIGUOUS_MESSAGES: List[Tuple[str, str]] = [
@@ -70,6 +85,7 @@ AMBIGUOUS_MESSAGES: List[Tuple[str, str]] = [
     ("Urgent: Your subscription expires tomorrow. Renew to continue service.", "ambiguous", "subscription_renewal"),
     ("Free trial ends today. Upgrade to premium to keep access.", "ambiguous", "free_trial"),
     ("Payment failed. Update your payment method to avoid service interruption.", "ambiguous", "payment_failed"),
+    ("Please complete your KYC verification when you have time. No deadline applies.", "ambiguous", "kyc_reminder"),
 ]
 
 
@@ -220,3 +236,323 @@ def test_scam_detection_precision_recall():
     assert recall >= 0.70, f"Recall too low: {recall:.3f}"
     assert f1 >= 0.70, f"F1 too low: {f1:.3f}"
     assert false_positives <= 3, f"Too many false positives: {false_positives}"
+
+
+def test_sbi_phishing_detected():
+    """Regression test: SBI phishing message with bank impersonation, KYC pressure,
+    OTP/PIN request, urgency, and suspicious URL must be detected as scam."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    text = (
+        "URGENT: Your SBI account will be BLOCKED within 2 hours due to incomplete "
+        "KYC verification. To avoid permanent suspension, verify your details "
+        "immediately using the secure link below: http://sbi-kyc-update.xyz/verify "
+        "Enter your account number, ATM PIN and OTP to complete verification. "
+        "Failure to comply will result in account suspension and loss of access to "
+        "UPI services. – SBI Customer Support Team"
+    )
+    signals = detector.detect(text)
+    result = scorer.score(
+        [{"score": s.score, "weight": s.weight} for s in signals]
+    )
+
+    # Should be classified as scam (medium+)
+    assert result["risk_score"] >= 25.0, (
+        f"SBI phishing message not detected as scam. Score: {result['risk_score']}"
+    )
+
+    # Should have multiple distinct signal categories
+    categories = {s.metadata.get("category") for s in signals if s.metadata}
+    assert "impersonation" in categories, "Missing bank impersonation signal"
+    assert "phishing" in categories, "Missing phishing signal"
+    assert "urgency_intimidation" in categories, "Missing urgency signal"
+    assert "otp_scam" in categories, "Missing OTP/PIN signal"
+
+
+def test_url_extraction_in_text_analysis():
+    """Regression test: URLs embedded in message text are extracted and analyzed
+    by the InvestigationEngine via URLAnalyzer."""
+    from app.services.investigation_engine import InvestigationEngine
+
+    engine = InvestigationEngine()
+    text = (
+        "URGENT: Your account will be BLOCKED within 2 hours. Verify using: "
+        "http://sbi-kyc-update.xyz/verify"
+    )
+    result = engine.analyze_text(text=text, title="URL Extraction Test")
+
+    url_signals = [s for s in result["signals"] if s.get("signal_type") == "url"]
+    assert len(url_signals) >= 1, "Missing URL signal for embedded URL"
+    url_signal = url_signals[0]
+    assert "sbi-kyc-update.xyz" in url_signal.get("evidence", ""), (
+        f"URL evidence mismatch: {url_signal.get('evidence')}"
+    )
+
+
+def test_legitimate_sbi_not_flagged():
+    """A bare mention of SBI without urgency/threat must NOT be flagged as fraud."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    text = (
+        "Your SBI account statement for March is available for download. "
+        "No action required."
+    )
+    signals = detector.detect(text)
+    result = scorer.score(
+        [{"score": s.score, "weight": s.weight} for s in signals]
+    )
+
+    assert result["risk_score"] < 25.0, (
+        f"Legitimate SBI statement incorrectly flagged. Score: {result['risk_score']}"
+    )
+
+
+def test_kyc_without_urgency_not_flagged():
+    """KYC verification mention without urgency/threat must NOT be auto-flagged."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    text = (
+        "Please complete your KYC verification when you have time. "
+        "No deadline applies."
+    )
+    signals = detector.detect(text)
+    result = scorer.score(
+        [{"score": s.score, "weight": s.weight} for s in signals]
+    )
+
+    assert result["risk_score"] < 25.0, (
+        f"Non-urgent KYC reminder incorrectly flagged. Score: {result['risk_score']}"
+    )
+
+
+def test_bank_impersonation_requires_context():
+    """Bank name alone must not trigger impersonation signal."""
+    detector = ScamDetector()
+
+    text = "I have an account with SBI bank."
+    signals = detector.detect(text)
+
+    bank_signals = [
+        s for s in signals
+        if s.metadata and s.metadata.get("pattern") == "bank_impersonation"
+    ]
+    assert len(bank_signals) == 0, (
+        "Bare bank name should not trigger bank_impersonation signal"
+    )
+
+def test_debug_signals():
+    """Debug: Print all signals for test cases."""
+    from app.services.scam_detector import ScamDetector
+
+    detector = ScamDetector()
+
+    test_cases = [
+        "Guaranteed 50% return on investment in just 30 days. Double your money!",
+        "Double your money in 30 days with no risk!",
+        "No risk investment with guaranteed returns.",
+        "Assured returns, no-risk claims and unrealistic earnings.",
+    ]
+
+    for text in test_cases:
+        print(f"\n=== INPUT: {text} ===")
+        signals = detector.detect(text)
+        for s in signals:
+            print(f"  {s.name}: score={s.score}, evidence={s.evidence_snippet[:50]!r}")
+
+
+def test_guaranteed_returns_detection():
+    """Guaranteed returns should generate high investment fraud signals."""
+    detector = ScamDetector()
+
+    text = "Guaranteed 50% return on investment in just 30 days. Double your money!"
+
+    signals = detector.detect(text)
+    investment_signals = [s for s in signals if s.name == "investment_fraud_high"]
+    assert len(investment_signals) >= 1, f"No investment_fraud_high signal: {signals}"
+
+    # At least one signal should contain "guaranteed"
+    has_guaranteed_signal = any(
+        "guaranteed" in s.evidence_snippet.lower() for s in investment_signals
+    )
+    assert has_guaranteed_signal, (
+        f"No signal contains 'guaranteed': {[s.evidence_snippet for s in investment_signals]}"
+    )
+
+    for s in investment_signals:
+        assert s.score >= 40.0, f"Signal score too low: {s.score}"
+
+
+def test_unrealistic_profit_promises_detection():
+    """Unrealistic profit promises should generate high investment fraud signals."""
+    detector = ScamDetector()
+
+    text = "Double your money in 30 days with no risk!"
+
+    signals = detector.detect(text)
+    investment_signals = [s for s in signals if s.name == "investment_fraud_high"]
+    assert len(investment_signals) >= 1, f"No investment_fraud_high signal: {signals}"
+
+    for s in investment_signals:
+        assert s.score >= 40.0, f"Signal score too low: {s.score}"
+        assert "double" in s.evidence_snippet.lower() or "money" in s.evidence_snippet.lower()
+
+
+def test_risk_free_claims_detection():
+    """Risk-free investment claims should generate medium investment fraud signals."""
+    detector = ScamDetector()
+
+    text = "No risk investment with guaranteed returns."
+
+    signals = detector.detect(text)
+    investment_signals = [s for s in signals if s.name == "investment_fraud_medium"]
+    # Should have at least one medium signal
+    assert len(investment_signals) >= 1, f"No investment_fraud_medium signal: {signals}"
+
+
+def test_crypto_investment_fraud_detection():
+    """Crypto investment with fraud indicators should generate high signals."""
+    detector = ScamDetector()
+
+    text = "Crypto investment opportunity with guaranteed high returns. Join now."
+
+    signals = detector.detect(text)
+    investment_signals = [s for s in signals if s.name == "investment_fraud_high"]
+    assert len(investment_signals) >= 1, f"No investment_fraud_high signal: {signals}"
+
+
+def test_legitimate_investments_not_flagged():
+    """Legitimate investment messages should not generate investment_fraud signals."""
+    detector = ScamDetector()
+
+    text = "Historical market performance shows average annual returns of 7% over the last 50 years."
+
+    signals = detector.detect(text)
+    investment_signals = [s for s in signals if s.name == "investment_fraud_high"]
+    assert len(investment_signals) == 0, (
+        f"Legitimate message incorrectly flagged: {signals}"
+    )
+
+    # RiskScorer should classify as low risk
+    scorer = RiskScorer()
+    result = scorer.score(
+        [{"score": s.score, "weight": s.weight} for s in signals]
+    )
+    assert result["risk_score"] < 25.0, (
+        f"Legitimate message scored too high: {result['risk_score']}"
+    )
+
+
+def test_legitimate_counter_examples():
+    """All six legitimate investment counterexamples should be correctly classified."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    legit_cases = [
+        ("Historical market performance shows average annual returns of 7% over the last 50 years.", "legitimate"),
+        ("Last year's investment returned 15%. This year looks promising but carries risk.", "legitimate"),
+        ("Bitcoin is a decentralized digital currency. Its value is determined by market supply and demand.", "legitimate"),
+        ("Diversify your portfolio across stocks, bonds, and real estate. No investment is without risk.", "legitimate"),
+        ("This savings account offers a fixed 3% annual return with FDIC insurance up to $250,000.", "legitimate"),
+    ]
+
+    for text, expected in legit_cases:
+        signals = detector.detect(text)
+        result = scorer.score(
+            [{"score": s.score, "weight": s.weight} for s in signals]
+        )
+
+        if expected == "legitimate":
+            assert result["risk_score"] < 25.0, (
+                f"Legitimate message incorrectly flagged as scam: {text} - score: {result['risk_score']}"
+            )
+        else:
+            # scam warning message
+            assert result["risk_score"] >= 25.0, (
+                f"Warning message should be flagged as scam: {text}"
+            )
+
+
+def test_b036_detection():
+    """B036: Assured returns, no-risk claims and unrealistic earnings."""
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    text = "Assured returns, no-risk claims and unrealistic earnings."
+
+    signals = detector.detect(text)
+    # Should have investment fraud signals
+    investment_signals = [s for s in signals if s.name == "investment_fraud_high"]
+    assert len(investment_signals) >= 1, (
+        f"No investment_fraud_high signal for B036: {signals}"
+    )
+
+    # Verify signals have required fields
+    for s in investment_signals:
+        assert s.score >= 40.0, f"Signal score too low: {s.score}"
+        assert s.evidence_snippet, "Evidence snippet should not be empty"
+        assert s.metadata, "Metadata should not be empty"
+        assert s.metadata.get("category") == "investment_fraud"
+
+    # RiskScorer should classify as CRITICAL risk
+    result = scorer.score(
+        [{"score": s.score, "weight": s.weight} for s in signals]
+    )
+    assert result["risk_score"] >= 75.0, (
+        f"B036 should have risk_score >= 75.0, got {result['risk_score']}"
+    )
+    assert result["risk_band"] == "critical", (
+        f"B036 should be CRITICAL risk band, got {result['risk_band']}"
+    )
+
+
+def test_b036_benchmark_fixture():
+    """B036 must match the exact fixture message from detection_benchmark.json."""
+    import json
+    from pathlib import Path
+    from app.services.scam_detector import ScamDetector
+    from app.services.risk_scoring import RiskScorer
+
+    # Load actual fixture relative to this test file
+    fixture_path = Path(__file__).resolve().parent / "fixtures" / "detection_benchmark.json"
+    with open(fixture_path) as f:
+        data = json.load(f)
+
+    b036 = None
+    for c in data['cases']:
+        if c['case_id'] == 'B036':
+            b036 = c
+            break
+
+    assert b036 is not None, "B036 fixture not found"
+
+    detector = ScamDetector()
+    scorer = RiskScorer()
+
+    text = b036['message']
+
+    signals = detector.detect(text)
+    # Should have investment fraud signals
+    investment_signals = [s for s in signals if s.name == "investment_fraud_high"]
+    assert len(investment_signals) >= 1, (
+        f"No investment_fraud_high signal for actual B036 fixture "
+        f"({text!r}): {signals}"
+    )
+
+    # All signals must have non-empty evidence
+    for s in investment_signals:
+        assert s.evidence_snippet, f"Empty evidence snippet: {s}"
+
+    # RiskScorer should classify as CRITICAL risk
+    result = scorer.score(
+        [{"score": s.score, "weight": s.weight} for s in signals]
+    )
+    assert result["risk_score"] >= 75.0, (
+        f"B036 actual fixture should have risk_score >= 75.0, "
+        f"got {result['risk_score']}: {result}"
+    )
+    assert result["risk_band"] == "critical", (
+        f"B036 actual fixture should be CRITICAL band, got {result['risk_band']}"
+    )
