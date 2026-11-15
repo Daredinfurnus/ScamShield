@@ -75,14 +75,14 @@ A dedicated category-specific detector (`category = "delivery_customs_fraud"`) r
 | **False Negatives (FN)** | 6 | 4 | 2 (`B028`, `B031`) | **0** (COMPLETELY ELIMINATED) |
 
 #### Exact Verification of Benchmark Cases:
-- `B028`: score = **35.0**, band = **medium** (Expected: scam / medium) $\rightarrow$ **PASS**
-- `B031`: score = **32.0**, band = **medium** (Expected: scam / medium) $\rightarrow$ **PASS**
-- `B030`: score = **0.0**, band = **low** (Expected: legitimate / low) $\rightarrow$ **PASS**
-- `B032`: score = **0.0**, band = **low** (Expected: legitimate / low) $\rightarrow$ **PASS**
-- `B010`: score = **70.0**, band = **high** (Preserved) $\rightarrow$ **PASS**
-- `B011`: score = **65.0**, band = **high** (Preserved) $\rightarrow$ **PASS**
-- `B033`: score = **90.0**, band = **critical** (Preserved) $\rightarrow$ **PASS**
-- `B036`: score = **100.0**, band = **critical** (Preserved) $\rightarrow$ **PASS**
+- `B028`: score = **35.0**, band = **medium** (Expected: scam / medium) → **PASS**
+- `B031`: score = **32.0**, band = **medium** (Expected: scam / medium) → **PASS**
+- `B030`: score = **0.0**, band = **low** (Expected: legitimate / low) → **PASS**
+- `B032`: score = **0.0**, band = **low** (Expected: legitimate / low) → **PASS**
+- `B010`: score = **70.0**, band = **high** (Preserved) → **PASS**
+- `B011`: score = **65.0**, band = **high** (Preserved) → **PASS**
+- `B033`: score = **90.0**, band = **critical** (Preserved) → **PASS**
+- `B036`: score = **100.0**, band = **critical** (Preserved) → **PASS**
 - `B008` & `B046`: preserved as documented false positives.
 
 ---
@@ -152,3 +152,110 @@ Eliminate the final 2 false positives from the 50-case benchmark:
 ### 5. Pending: Git Staging Plan
 Awaiting user approval before any `git add` or `git commit`.
 See artifact `audit_report.md` in brain directory for full staging plan.
+
+---
+
+## Session Reference: 2026-11-14 — Phase 9.1 Auth Unblock & Frontend Auth Integration
+
+- **Responsible Agent:** Primary Engineering Agent (Opus 5.5)
+- **Branch:** `feature/ai-investigation-assistant`
+- **Base Commit:** `707dc59 docs(release): freeze Phase 8 milestone and update agent handoff`
+- **Status:** **COMPLETE — All 76 backend tests pass, frontend builds clean, auth functional**
+
+---
+
+### 1. Task Summary
+Unblock the Phase 9.1 Multi-Tenant Auth & Security milestone which was blocked by three root causes:
+1. Missing `argon2-cffi` dependency → `ImportError` on auth import
+2. SQLite `scamshield.db` schema out-of-sync (missing 5 columns on `investigations`)
+3. Frontend Axios client lacked auth state management and token injection
+
+---
+
+### 2. Changes Implemented
+
+#### Backend
+| File | Change |
+|---|---|
+| `backend/requirements.txt` | Added `argon2-cffi==25.1.0` |
+| `backend/app/schemas/analysis.py` | Removed `min_length=1` from `AnalyzeTextRequest.text` (engine owns validation) |
+| `backend/tests/test_investigation_engine.py` | Added `_auth_client()` helper; updated `test_api_investigation_list` and `test_api_investigation_retrieval` to authenticate |
+| `scamshield.db` | Safe `ALTER TABLE` migration adding `tenant_id`, `created_by_user_id`, `is_anonymous`, `access_token_hash`, `access_token_expires_at` (backup: `scamshield.db.bak.20261114-130619`) |
+
+#### Frontend
+| File | Change |
+|---|---|
+| `frontend/src/store/authStore.js` | **NEW** — Zustand auth store with persist middleware |
+| `frontend/src/api/index.js` | Added request/response interceptors (Bearer header, cookie support, 401→clear auth) |
+| `frontend/src/api/endpoints.js` | Added auth endpoints (`register`, `login`, `refresh`, `logout`, `me`, `api-keys`) |
+| `frontend/src/components/auth/AuthModal.jsx` | **NEW** — Login/Register modal with cyberpunk styling |
+| `frontend/src/components/layout/Navbar.jsx` | Integrated auth state (shows user email + logout when authed, "ACCESS" button when not) |
+| `frontend/src/pages/Dashboard.jsx` | Shows auth prompt with modal trigger on 401; otherwise displays investigation feed |
+
+---
+
+### 3. Verification Results
+
+**Backend Test Suite (`python -m pytest tests/ -q`):**
+- **76 / 76 PASSED (100%)** — 4 previously failing tests now pass
+- Duration: ~30s
+
+**50-Case Detection Benchmark (`python tests/benchmark_detection.py`):**
+- **Accuracy: 100.0%** (50/50 cases)
+- **Precision: 1.000**, **Recall: 1.000**, **F1: 1.000**
+- **FPR: 0.0%**, **FNR: 0.0%**
+
+**Frontend Production Build (`npm run build`):**
+- **Vite 5.4.21:** Built cleanly in 18.54s
+- **2278 modules transformed**, 0 syntax/JSX errors
+- **JS Bundle:** 862.13 kB (gzipped: 259.05 kB) — chunk warning non-fatal
+
+**Schema Verification:**
+```sql
+sqlite3 scamshield.db "PRAGMA table_info(investigations);"
+-- 14 columns including all 5 newly added multi-tenant auth columns
+```
+
+---
+
+### 4. Remaining Work (Next Agent)
+
+| Priority | Task | Details |
+|---|---|---|
+| **1** | **Initialize Alembic Migrations** | `cd backend && alembic init alembic` — generate baseline migration from current models |
+| **2** | **Complete Image / OCR Pipeline (Phase 6)** | Wire `OCRProcessor` in `backend/app/services/ocr.py` to `/api/analysis/image` endpoint |
+| **3** | **Frontend Cookie Secure Flag** | Update `backend/app/api/auth.py` to set `secure=True` on auth cookies when `APP_ENV != "development"` |
+| **4** | **Frontend Auth Polish** | Profile dropdown, token refresh UX, "claim investigation" flow for anonymous submissions |
+| **5** | **CI Pipeline** | GitHub Actions workflow running pytest + benchmark on every PR |
+
+---
+
+### 5. Quick Start for Next Session
+
+```bash
+# Backend
+cd backend
+uvicorn app.main:app --reload --port 8000
+python -m pytest tests/ -q
+python tests/benchmark_detection.py
+
+# Frontend
+cd ../frontend
+npm run dev
+
+# DB Migration (Priority 1)
+cd backend
+alembic init alembic
+alembic revision --autogenerate -m "baseline: all current models"
+alembic upgrade head
+```
+
+---
+
+### 6. Key Architectural Invariants (DO NOT BREAK)
+
+1. **Scoring Invariant:** Risk scores (0-100) calculated ONLY by `RiskScorer` in `backend/app/services/risk_scoring.py`. LLM never invents/overrides scores.
+2. **Evidence-Grounded Findings:** Every detection signal must reference an actual evidence snippet from submitted input.
+3. **Graceful Fallback:** `AIOrchestrator` must fall back cleanly to `DeterministicFallback` when OpenAI key missing.
+4. **Tenant & IDOR Security:** Cross-tenant access returns HTTP 404 (not 403/401) to prevent resource enumeration.
+5. **Non-Destructive DB Safety:** Never drop databases. Migrate schemas safely.

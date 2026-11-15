@@ -1,14 +1,14 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
 
 class AnalyzeTextRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=10000, description="Raw message text to analyze")
     investigation_id: Optional[int] = None
 
 
 class AnalyzeURLRequest(BaseModel):
-    url: str
+    url: str = Field(..., min_length=4, max_length=2000, description="Target URL to inspect")
     investigation_id: Optional[int] = None
 
 
@@ -17,10 +17,7 @@ class AnalyzeImageRequest(BaseModel):
 
 
 class Signal(BaseModel):
-    """A single risk signal with its evidence and source.
-
-    Extended for Phase 2 with standardized detection signal fields.
-    """
+    """A single risk signal with its evidence and source."""
 
     name: str
     score: float
@@ -47,3 +44,4 @@ class AnalysisResponse(BaseModel):
     evidence: Optional[List[Dict[str, Any]]] = None
     analysis_summary: Optional[str] = None
     created_at: Optional[str] = None
+    access_token: Optional[str] = None  # Returned for anonymous submissions

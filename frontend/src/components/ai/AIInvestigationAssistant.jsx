@@ -78,10 +78,13 @@ export function AIInvestigationAssistant({ investigationId }) {
       <div className="mb-8">
         <h3 className="font-display font-bold text-text-primary mb-3">AI-Generated Explanation</h3>
         {loading && <Loader className="w-auto" />}
-        {!loading && explanation && (
+        {!loading && explanation && explanation.data && (
           <div className="card-elevated border border-border-color rounded-lg p-6 font-mono-tech text-sm text-text-secondary whitespace-pre-wrap break-words">
-            {explanation.summary || explanation.explanation || 'No explanation available.'}
+            {explanation.data.summary || 'No explanation available.'}
           </div>
+        )}
+        {!loading && explanation && !explanation.data && (
+          <p className="text-sm text-text-secondary">No AI explanation available.</p>
         )}
         {!loading && !explanation && !error && (
           <p className="text-sm text-text-secondary">No AI explanation available.</p>
@@ -101,10 +104,13 @@ export function AIInvestigationAssistant({ investigationId }) {
         >
           {reportLoading ? 'Generating...' : 'Generate AI Report'}
         </Button>
-        {report && (
+        {report && report.data && (
           <div className="mt-4 p-4 card-elevated border border-border-color font-mono-tech text-sm text-text-secondary whitespace-pre-wrap break-words">
-            {report.summary || report.report || 'No report generated.'}
+            {report.data.summary || report.data.report || 'No report generated.'}
           </div>
+        )}
+        {report && !report.data && (
+          <p className="text-sm text-text-secondary">No report generated.</p>
         )}
         {error && (
           <p className="text-sm text-text-secondary mt-2">{error}</p>

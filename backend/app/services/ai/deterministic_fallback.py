@@ -28,8 +28,8 @@ class DeterministicFallback:
 
         if observations:
             summary = (
-                f"The investigation contains {len(observations)} "
-                "detected finding(s). Review the evidence below."
+                f"The investigation contains {len(observations)} detected "
+                f"finding(s). The evidence for each finding is listed above."
             )
             limitation = (
                 "These findings are indicators, not proof of criminal activity."

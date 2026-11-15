@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import api from '../api/index'
 import { Button } from '../components/common/Button'
@@ -10,17 +10,25 @@ import { RiskGauge } from '../components/risk/RiskGauge'
 
 export default function InvestigationReport() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
+  const capabilityToken = searchParams.get('token')
   const [investigation, setInvestigation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    // Anonymous investigations are gated by a capability token. When present,
+    // pass it as the X-Investigation-Token header so the backend's access
+    // control layer can verify the caller is authorized to view this case.
+    const headers = capabilityToken
+      ? { 'X-Investigation-Token': capabilityToken }
+      : {}
     api
-      .get(`/api/investigations/${id}`)
+      .get(`/api/investigations/${id}`, { headers })
       .then((res) => setInvestigation(res.data))
-      .catch((err) => setError(err.message))
+      .catch((err) => setError(err.response?.data?.detail || err.message))
       .finally(() => setLoading(false))
-  }, [id])
+  }, [id, capabilityToken])
 
   if (loading) {
     return (

@@ -138,11 +138,6 @@
     }
   },
   "detector_metrics": {
-    "bank_impersonation": {
-      "expected": 4,
-      "detected": 4,
-      "missed": 0
-    },
     "suspicious_tld": {
       "expected": 6,
       "detected": 0,
@@ -153,12 +148,17 @@
       "detected": 4,
       "missed": 8
     },
+    "otp_scam": {
+      "expected": 4,
+      "detected": 4,
+      "missed": 0
+    },
     "phishing_kyc_pressure": {
       "expected": 1,
       "detected": 1,
       "missed": 0
     },
-    "otp_scam": {
+    "bank_impersonation": {
       "expected": 4,
       "detected": 4,
       "missed": 0
@@ -307,11 +307,11 @@
         "phishing"
       ],
       "expected_indicators": [
-        "bank_impersonation",
         "suspicious_tld",
         "urgency_intimidation",
+        "otp_scam",
         "phishing_kyc_pressure",
-        "otp_scam"
+        "bank_impersonation"
       ],
       "indicators_correctly_detected": [
         "bank_impersonation",
@@ -319,8 +319,8 @@
         "phishing_kyc_pressure"
       ],
       "indicators_missed": [
-        "suspicious_tld",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "suspicious_tld"
       ],
       "num_signals": 5,
       "explanation": "SBI impersonation + urgency + KYC pressure + ATM PIN/OTP request + suspicious TLD"
@@ -353,18 +353,18 @@
         "phishing"
       ],
       "expected_indicators": [
-        "bank_impersonation",
-        "phishing_credential_request",
+        "urgency_intimidation",
         "suspicious_tld",
-        "urgency_intimidation"
+        "bank_impersonation",
+        "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
         "bank_impersonation",
         "phishing_credential_request"
       ],
       "indicators_missed": [
-        "suspicious_tld",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "suspicious_tld"
       ],
       "num_signals": 6,
       "explanation": "HDFC impersonation + credential request + account suspension threat"
@@ -397,18 +397,18 @@
         "phishing"
       ],
       "expected_indicators": [
-        "bank_impersonation",
-        "phishing_credential_request",
+        "urgency_intimidation",
         "suspicious_tld",
-        "urgency_intimidation"
+        "bank_impersonation",
+        "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
         "bank_impersonation",
         "phishing_credential_request"
       ],
       "indicators_missed": [
-        "suspicious_tld",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "suspicious_tld"
       ],
       "num_signals": 6,
       "explanation": "ICICI impersonation + unauthorized access + sign-in-to-prevent-closure"
@@ -439,14 +439,14 @@
         "phishing"
       ],
       "expected_indicators": [
+        "urgency_intimidation",
         "bank_impersonation",
-        "phishing_credential_request",
-        "urgency_intimidation"
+        "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
+        "urgency_intimidation",
         "bank_impersonation",
-        "phishing_credential_request",
-        "urgency_intimidation"
+        "phishing_credential_request"
       ],
       "indicators_missed": [],
       "num_signals": 5,
@@ -514,15 +514,15 @@
         "phishing"
       ],
       "expected_indicators": [
+        "urgency_intimidation",
         "suspicious_tld",
-        "phishing_credential_request",
-        "urgency_intimidation"
+        "phishing_credential_request"
       ],
       "indicators_correctly_detected": [],
       "indicators_missed": [
+        "urgency_intimidation",
         "suspicious_tld",
-        "phishing_credential_request",
-        "urgency_intimidation"
+        "phishing_credential_request"
       ],
       "num_signals": 2,
       "explanation": "Account block threat + urgency + credential verification + suspicious TLD, no bank name"
@@ -597,12 +597,12 @@
         "phishing"
       ],
       "expected_indicators": [
-        "otp_scam",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "otp_scam"
       ],
       "indicators_correctly_detected": [
-        "otp_scam",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "otp_scam"
       ],
       "indicators_missed": [],
       "num_signals": 3,
@@ -628,8 +628,8 @@
         "phishing"
       ],
       "expected_indicators": [
-        "upi_payment_fraud",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "upi_payment_fraud"
       ],
       "indicators_correctly_detected": [
         "upi_payment_fraud"
@@ -666,12 +666,12 @@
         "phishing"
       ],
       "expected_indicators": [
-        "otp_scam",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "otp_scam"
       ],
       "indicators_correctly_detected": [
-        "otp_scam",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "otp_scam"
       ],
       "indicators_missed": [],
       "num_signals": 5,
@@ -991,13 +991,13 @@
         "phishing"
       ],
       "expected_indicators": [
-        "phishing_credential_request",
         "ip_in_url",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
-        "phishing_credential_request",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "phishing_credential_request"
       ],
       "indicators_missed": [
         "ip_in_url"
@@ -1097,13 +1097,13 @@
         "delivery_customs_fraud"
       ],
       "expected_indicators": [
-        "advance_fee_fraud",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "advance_fee_fraud"
       ],
       "indicators_correctly_detected": [],
       "indicators_missed": [
-        "advance_fee_fraud",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "advance_fee_fraud"
       ],
       "num_signals": 1,
       "explanation": "Failed delivery + redelivery fee request + suspicious URL"
@@ -1126,13 +1126,13 @@
         "phishing"
       ],
       "expected_indicators": [
-        "advance_fee_fraud",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "advance_fee_fraud"
       ],
       "indicators_correctly_detected": [],
       "indicators_missed": [
-        "advance_fee_fraud",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "advance_fee_fraud"
       ],
       "num_signals": 1,
       "explanation": "Pending refund + click-to-claim + 1-hour urgency"
@@ -1174,13 +1174,13 @@
         "delivery_customs_fraud"
       ],
       "expected_indicators": [
-        "advance_fee_fraud",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "advance_fee_fraud"
       ],
       "indicators_correctly_detected": [],
       "indicators_missed": [
-        "advance_fee_fraud",
-        "urgency_intimidation"
+        "urgency_intimidation",
+        "advance_fee_fraud"
       ],
       "num_signals": 1,
       "explanation": "Customs duty fee + pay now to avoid return"

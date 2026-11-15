@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api/index'
 import { API } from '../api/endpoints'
 import { InvestigationResult } from '../components/investigation/InvestigationResult'
 
 export default function NewInvestigation() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [inputType, setInputType] = useState('text')
   const [content, setContent] = useState('')
   const [loading, setLoading] = useState(false)
@@ -34,7 +35,12 @@ export default function NewInvestigation() {
       const res = await api.post(endpoint, body)
       setResult(res.data)
       if (res.data.investigation_id) {
-        navigate(`/investigations/${res.data.investigation_id}/report`)
+        // Anonymous investigations are gated by a capability token returned
+        // by the API. Carry it into the report URL so the report page can
+        // authenticate against the investigation without a login session.
+        const token = res.data.access_token
+        const tokenQuery = token ? `?token=${encodeURIComponent(token)}` : ''
+        navigate(`/investigations/${res.data.investigation_id}/report${tokenQuery}`)
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'Analysis failed. Please try again.')

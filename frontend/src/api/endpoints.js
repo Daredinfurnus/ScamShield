@@ -9,4 +9,12 @@ export const API = {
   aiStatus: '/api/ai/status',
   aiExplain: (id) => `/api/ai/investigations/${id}/explain`,
   aiReport: (id) => `/api/ai/investigations/${id}/report`,
+  auth: {
+    register: '/api/auth/register',
+    login: '/api/auth/login',
+    refresh: '/api/auth/refresh',
+    logout: '/api/auth/logout',
+    me: '/api/auth/me',
+    apiKeys: '/api/auth/api-keys',
+  },
 }

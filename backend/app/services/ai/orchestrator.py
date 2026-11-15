@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from app.services.ai.openai_provider import OpenAIProvider
+from app.services.ai.deterministic_fallback import DeterministicFallback
+
 
 class AIOrchestrator:
     """Orchestrates AI investigation operations with OpenAI and deterministic fallback."""

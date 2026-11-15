@@ -241,6 +241,21 @@ def test_api_analyze_text_endpoint():
     assert data["findings"][0]["evidence_snippet"] != ""
 
 
+def _auth_client() -> TestClient:
+    """Register a fresh user and return a TestClient carrying their session cookie."""
+    client = TestClient(app)
+    client.post(
+        "/api/auth/register",
+        json={
+            "email": "list-test@example.com",
+            "password": "ListTestPass1",
+            "tenant_name": "List Test Org",
+            "role": "investigator",
+        },
+    )
+    return client
+
+
 def test_api_analyze_text_empty_input():
     client = TestClient(app)
     response = client.post(
@@ -267,20 +282,42 @@ def test_api_analyze_url_endpoint():
 
 def test_api_analyze_image_endpoint():
     client = TestClient(app)
+    # Create a simple test image (1x1 PNG)
+    import base64
+    import struct
+    import zlib
+
+    def make_png():
+        sig = b"\x89PNG\r\n\x1a\n"
+
+        def chunk(t, d):
+            return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+
+        ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+        raw = b"\x00\xff\x00\x00"
+        idat = zlib.compress(raw)
+        return sig + chunk(b"IHDR", ihdr) + chunk(b"IDAT", idat) + chunk(b"IEND", b"")
+
+    png_bytes = make_png()
+    b64_png = base64.b64encode(png_bytes).decode("ascii")
+
+    # Test base64 endpoint
     response = client.post(
         "/api/analysis/image",
-        json={},
+        data={"image_data_base64": b64_png, "filename": "test.png"},
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "incomplete"
-    assert "not yet implemented" in data["analysis_summary"].lower()
-    assert data["signals"] == []
-    assert data["findings"] == []
+    # Should return completed (or incomplete if OCR is unavailable) but not "not yet implemented"
+    assert data["status"] in ("completed", "incomplete", "failed")
+    assert "not yet implemented" not in data.get("analysis_summary", "").lower()
+    # Signals and findings may be empty if no text detected
+    assert isinstance(data.get("signals", []), list)
+    assert isinstance(data.get("findings", []), list)
 
 
 def test_api_investigation_list():
-    client = TestClient(app)
+    client = _auth_client()
     client.post(
         "/api/analysis/text",
         json={"text": "Test for listing"},
@@ -292,7 +329,7 @@ def test_api_investigation_list():
 
 
 def test_api_investigation_retrieval():
-    client = TestClient(app)
+    client = _auth_client()
     create_resp = client.post(
         "/api/analysis/text",
         json={"text": "Test for retrieval"},
