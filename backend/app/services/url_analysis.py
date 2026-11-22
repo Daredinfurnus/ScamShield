@@ -38,7 +38,6 @@ def validate_url(url: str) -> Tuple[bool, Optional[str]]:
         return False, "URL must include a hostname"
     if "_" in hostname:
         return False, f"Hostname contains underscores which are not valid: {hostname}"
-
     try:
         ip = normalize_ip(hostname)
         allowed, reason = is_ip_allowed(ip)
@@ -130,6 +129,7 @@ def _ip_version(hostname: str) -> str:
 def build_signals(url: str, normalized: Dict[str, Any]) -> List[DetectionSignal]:
     """Generate risk signals from normalized URL components."""
     hostname: str = normalized.get("host", "")
+    hostname_lower = hostname.lower()
     signals: List[DetectionSignal] = []
 
     # 1. IP address used instead of a domain
@@ -186,7 +186,6 @@ def build_signals(url: str, normalized: Dict[str, Any]) -> List[DetectionSignal]
         )
 
     # 4. Known URL shortener
-    hostname_lower = hostname.lower()
     if hostname_lower in {"bit.ly", "goo.gl", "tinyurl.com", "ow.ly", "is.gd", "bit.do"}:
         signals.append(
             _signal(
@@ -197,6 +196,44 @@ def build_signals(url: str, normalized: Dict[str, Any]) -> List[DetectionSignal]
                 hostname,
                 "url_input",
                 {"shortener": hostname_lower},
+                1.0,
+                0.70,
+            )
+        )
+
+    # 5. Suspicious path segments and query params
+    path = normalized.get("path", "").lower()
+    query = normalized.get("query", "").lower()
+    full_path_context = path + query
+
+    suspicious_path_terms = ["login", "verify", "secure", "banking", "account", "update", "signin"]
+    for term in suspicious_path_terms:
+        if term in full_path_context:
+            signals.append(
+                _signal(
+                    "url",
+                    f"suspicious_path_{term}",
+                    f"URL contains suspicious path/query term: {term}.",
+                    10.0,
+                    term,
+                    "url_input",
+                    {"term": term},
+                    1.0,
+                    0.50,
+                )
+            )
+
+    # 6. Simple typosquatting check (e.g., paypa1)
+    if "paypa1" in hostname_lower:
+        signals.append(
+            _signal(
+                "url",
+                "typosquatting_attempt",
+                "Hostname contains suspicious typosquatting pattern.",
+                25.0,
+                hostname_lower,
+                "url_input",
+                {"pattern": "paypa1"},
                 1.0,
                 0.70,
             )
