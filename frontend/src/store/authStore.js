@@ -15,6 +15,7 @@ export const useAuthStore = create(
       user: null,
       accessToken: null,
       status: 'idle', // idle | loading | authenticated | error
+      authModalOpen: false, // Modal visibility state
 
       setAuth: (user, accessToken) =>
         set({ user, accessToken, status: 'authenticated' }),
@@ -23,6 +24,9 @@ export const useAuthStore = create(
       setError: (message) =>
         set({ status: 'error', error: message }),
       resetError: () => set({ error: null }),
+      openAuthModal: () => set({ authModalOpen: true }),
+      closeAuthModal: () => set({ authModalOpen: false }),
+      toggleAuthModal: () => set((state) => ({ authModalOpen: !state.authModalOpen })),
     }),
     {
       name: 'scamshield-auth',
@@ -30,6 +34,7 @@ export const useAuthStore = create(
         user: state.user,
         accessToken: state.accessToken,
         status: state.status,
+        // Don't persist modal state
       }),
     },
   ),

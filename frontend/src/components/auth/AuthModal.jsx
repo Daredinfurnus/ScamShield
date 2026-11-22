@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Shield, X, User, Mail, Lock, ArrowRight } from 'lucide-react'
 import api from '../../api/index'
 import { API } from '../../api/endpoints'
 import { useAuthStore } from '../../store/authStore'
+import { Button } from '../common/Button'
+import { Input } from '../common/Input'
+import { Card } from '../common/Card'
 
 export function AuthModal({ open, onClose }) {
-  const [mode, setMode] = useState('login') // login | register
+  const [mode, setMode] = useState('register') // Default to register mode as per requirements
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [tenantName, setTenantName] = useState('')
@@ -40,95 +42,114 @@ export function AuthModal({ open, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md cyber-panel p-6">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-[#b7ff38]">
+      <div
+        className="absolute inset-0 bg-canvas/80 backdrop-blur-sm"
+        onClick={onClose}
+        style={{ pointerEvents: 'auto' }}
+      />
+      <Card className="relative w-full max-w-md p-6 sm:p-8 space-y-6 bg-canvas-card border-border-strong shadow-elevated z-51">
+        <button 
+          onClick={onClose} 
+          className="absolute top-5 right-5 text-parchment-dim hover:text-parchment transition-colors"
+          aria-label="Close Modal"
+        >
           <X size={18} />
         </button>
 
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-9 h-9 border border-[#b7ff38]/50 bg-[#b7ff38]/5 text-[#b7ff38] flex items-center justify-center">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-md bg-canvas-subtle border border-border flex items-center justify-center text-ochre">
             <Shield size={18} />
           </div>
           <div>
-            <div className="font-display text-xl tracking-wider text-slate-100">
-              {mode === 'login' ? 'ACCESS CONSOLE' : 'REGISTER UNIT'}
-            </div>
-            <div className="cyber-kicker">SECURE AUTH GATEWAY</div>
+            <h3 className="editorial-heading text-lg text-parchment">
+              {mode === 'login' ? 'Investigator Sign In' : 'Register Organization'}
+            </h3>
+            <p className="text-xs text-parchment-dim font-mono">
+              Secure Credential Authentication
+            </p>
           </div>
         </div>
 
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} className="space-y-4" style={{ pointerEvents: 'auto' }}>
           {mode === 'register' && (
-            <label className="block">
-              <span className="cyber-kicker mb-1.5 inline-block">ORGANIZATION</span>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-mono uppercase text-parchment-dim">
+                Organization Name
+              </label>
               <div className="relative">
-                <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-parchment-dim" />
                 <input
                   value={tenantName}
                   onChange={(e) => setTenantName(e.target.value)}
-                  placeholder="Acme Corp"
-                  className="w-full pl-9 pr-3 py-2.5 bg-[#070c12] border border-[#b7ff38]/20 rounded text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#b7ff38]"
+                  placeholder="National Fraud Bureau"
+                  required
+                  className="w-full pl-9 pr-3 py-2 bg-canvas-subtle border border-border rounded-md text-xs font-mono text-parchment placeholder:text-parchment-dim focus:outline-none focus:border-ochre"
                 />
               </div>
-            </label>
+            </div>
           )}
-          <label className="block">
-            <span className="cyber-kicker mb-1.5 inline-block">CREDENTIAL EMAIL</span>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-mono uppercase text-parchment-dim">
+              Operator Email
+            </label>
             <div className="relative">
-              <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-parchment-dim" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="operator@acme.io"
-                className="w-full pl-9 pr-3 py-2.5 bg-[#070c12] border border-[#b7ff38]/20 rounded text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#b7ff38]"
+                placeholder="investigator@agency.gov"
+                className="w-full pl-9 pr-3 py-2 bg-canvas-subtle border border-border rounded-md text-xs font-mono text-parchment placeholder:text-parchment-dim focus:outline-none focus:border-ochre"
               />
             </div>
-          </label>
-          <label className="block">
-            <span className="cyber-kicker mb-1.5 inline-block">PASSPHRASE</span>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-mono uppercase text-parchment-dim">
+              Passphrase
+            </label>
             <div className="relative">
-              <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-parchment-dim" />
               <input
                 type="password"
                 required
                 minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-9 pr-3 py-2.5 bg-[#070c12] border border-[#b7ff38]/20 rounded text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-[#b7ff38]"
+                placeholder="••••••••••••"
+                className="w-full pl-9 pr-3 py-2 bg-canvas-subtle border border-border rounded-md text-xs font-mono text-parchment placeholder:text-parchment-dim focus:outline-none focus:border-ochre"
               />
             </div>
-          </label>
+          </div>
 
           {error && (
-            <div className="text-xs text-[#ff416c] border border-[#ff416c]/30 bg-[#ff416c]/10 rounded px-3 py-2">
+            <div className="p-3 rounded-md bg-risk-critical-dim border border-risk-critical-border text-xs text-risk-critical font-mono">
               {error}
             </div>
           )}
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="cyber-button w-full disabled:opacity-50"
+            className="w-full"
           >
-            {loading ? 'AUTHENTICATING…' : mode === 'login' ? 'LOGIN' : 'CREATE ACCOUNT'}
-            <ArrowRight size={15} />
-          </button>
+            <span>{loading ? 'Authenticating...' : mode === 'login' ? 'Sign In to Workspace' : 'Create Organization Unit'}</span>
+            <ArrowRight size={14} />
+          </Button>
         </form>
 
-        <div className="mt-5 text-center text-xs text-slate-500 font-mono-tech tracking-wider">
-          {mode === 'login' ? 'NO CREDENTIALS?' : 'ALREADY ENLISTED?'}
+        <div className="pt-2 text-center text-xs font-mono text-parchment-dim">
+          <span>{mode === 'login' ? 'Need an investigator unit?' : 'Already have credentials?'}</span>
           <button
             onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null) }}
-            className="ml-2 text-[#b7ff38] hover:underline"
+            className="ml-2 text-ochre hover:underline font-semibold"
           >
-            {mode === 'login' ? 'REGISTER' : 'LOGIN'}
+            {mode === 'login' ? 'Register' : 'Sign In'}
           </button>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

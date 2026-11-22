@@ -26,7 +26,7 @@ export default function Dashboard() {
   const [investigations, setInvestigations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const { user, accessToken } = useAuthStore()
+  const { user, accessToken, authModalOpen, openAuthModal, closeAuthModal } = useAuthStore()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -62,13 +62,13 @@ export default function Dashboard() {
           <p className="text-xs text-parchment-muted mt-1 font-mono">
             Please sign in to access the Intelligence Desk.
           </p>
-          <Link
-            to="/"
+          <button
+            onClick={openAuthModal}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-ochre text-canvas font-semibold text-xs font-mono mt-4"
           >
             <span>ACCESS</span>
             <ChevronRight size={14} />
-          </Link>
+          </button>
         </Card>
       </div>
     )
