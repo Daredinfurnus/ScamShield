@@ -269,4 +269,16 @@ Deterministic Baseline (Fallback)
             "risk_band": risk_band,
             "provider": "deterministic",
             "fallback_used": True,
+            "findings": [
+                {
+                    "id": f.get('id'),
+                    "finding_type": f.get('finding_type'),
+                    "title": f.get('title', f.get('finding_type', 'Unknown')),
+                    "description": f.get('description', ''),
+                    "evidence_snippet": f.get('evidence_snippet', ''),
+                    "evidence_source": f.get('evidence_source', ''),
+                    "score": f.get('score', 0),
+                }
+                for f in findings
+            ],
         }

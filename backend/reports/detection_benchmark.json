@@ -143,16 +143,6 @@
       "detected": 4,
       "missed": 8
     },
-    "suspicious_tld": {
-      "expected": 6,
-      "detected": 0,
-      "missed": 6
-    },
-    "bank_impersonation": {
-      "expected": 4,
-      "detected": 4,
-      "missed": 0
-    },
     "phishing_kyc_pressure": {
       "expected": 1,
       "detected": 1,
@@ -162,6 +152,16 @@
       "expected": 4,
       "detected": 4,
       "missed": 0
+    },
+    "bank_impersonation": {
+      "expected": 4,
+      "detected": 4,
+      "missed": 0
+    },
+    "suspicious_tld": {
+      "expected": 6,
+      "detected": 0,
+      "missed": 6
     },
     "phishing_credential_request": {
       "expected": 7,
@@ -307,20 +307,20 @@
         "phishing"
       ],
       "expected_indicators": [
-        "suspicious_tld",
         "urgency_intimidation",
-        "bank_impersonation",
         "phishing_kyc_pressure",
-        "otp_scam"
+        "otp_scam",
+        "bank_impersonation",
+        "suspicious_tld"
       ],
       "indicators_correctly_detected": [
+        "otp_scam",
         "bank_impersonation",
-        "phishing_kyc_pressure",
-        "otp_scam"
+        "phishing_kyc_pressure"
       ],
       "indicators_missed": [
-        "urgency_intimidation",
-        "suspicious_tld"
+        "suspicious_tld",
+        "urgency_intimidation"
       ],
       "num_signals": 5,
       "explanation": "SBI impersonation + urgency + KYC pressure + ATM PIN/OTP request + suspicious TLD"
@@ -353,9 +353,9 @@
         "phishing"
       ],
       "expected_indicators": [
+        "suspicious_tld",
         "bank_impersonation",
         "phishing_credential_request",
-        "suspicious_tld",
         "urgency_intimidation"
       ],
       "indicators_correctly_detected": [
@@ -363,8 +363,8 @@
         "phishing_credential_request"
       ],
       "indicators_missed": [
-        "urgency_intimidation",
-        "suspicious_tld"
+        "suspicious_tld",
+        "urgency_intimidation"
       ],
       "num_signals": 6,
       "explanation": "HDFC impersonation + credential request + account suspension threat"
@@ -397,9 +397,9 @@
         "phishing"
       ],
       "expected_indicators": [
+        "suspicious_tld",
         "bank_impersonation",
         "phishing_credential_request",
-        "suspicious_tld",
         "urgency_intimidation"
       ],
       "indicators_correctly_detected": [
@@ -407,8 +407,8 @@
         "phishing_credential_request"
       ],
       "indicators_missed": [
-        "urgency_intimidation",
-        "suspicious_tld"
+        "suspicious_tld",
+        "urgency_intimidation"
       ],
       "num_signals": 6,
       "explanation": "ICICI impersonation + unauthorized access + sign-in-to-prevent-closure"
@@ -514,15 +514,15 @@
         "phishing"
       ],
       "expected_indicators": [
-        "phishing_credential_request",
         "suspicious_tld",
+        "phishing_credential_request",
         "urgency_intimidation"
       ],
       "indicators_correctly_detected": [],
       "indicators_missed": [
-        "urgency_intimidation",
+        "suspicious_tld",
         "phishing_credential_request",
-        "suspicious_tld"
+        "urgency_intimidation"
       ],
       "num_signals": 2,
       "explanation": "Account block threat + urgency + credential verification + suspicious TLD, no bank name"
@@ -926,8 +926,8 @@
         "phishing"
       ],
       "expected_indicators": [
-        "phishing_credential_request",
-        "suspicious_tld"
+        "suspicious_tld",
+        "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
         "phishing_credential_request"
@@ -1067,8 +1067,8 @@
         "phishing"
       ],
       "expected_indicators": [
-        "phishing_credential_request",
-        "suspicious_tld"
+        "suspicious_tld",
+        "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
         "phishing_credential_request"
