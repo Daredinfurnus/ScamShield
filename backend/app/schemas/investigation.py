@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional, List
 
@@ -14,6 +14,8 @@ class InvestigationCreate(InvestigationBase):
 
 
 class FindingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     investigation_id: int
     finding_type: str
@@ -24,17 +26,13 @@ class FindingRead(BaseModel):
     score: float
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class InvestigationRead(InvestigationBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     risk_score: float
     risk_band: str
     status: str
     created_at: datetime
     findings: List[FindingRead] = []
-
-    class Config:
-        from_attributes = True

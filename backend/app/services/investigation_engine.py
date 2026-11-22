@@ -307,11 +307,13 @@ class InvestigationEngine:
             analysis_result = self.url_analyzer.analyze(cleaned)
 
             raw_score = float(analysis_result.get("score", 0.0))
+            # Clamp raw_score between 0.0 and 100.0 (raw_score is already on a 0-100 scale from RiskScorer)
+            clamped_score = max(0.0, min(100.0, raw_score))
             signal = DetectionSignal(
                 signal_type="url",
                 name="url_heuristic",
                 description=analysis_result.get("note", "URL analysis signal"),
-                score=raw_score * 100.0,
+                score=clamped_score,
                 weight=1.0,
                 confidence=0.5,
                 evidence_snippet=evidence_ref["evidence_snippet"],

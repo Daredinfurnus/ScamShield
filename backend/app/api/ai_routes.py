@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.investigation import Investigation
 from app.services.ai.orchestrator import AIOrchestrator
 from app.services.ai.deterministic_fallback import DeterministicFallback
+from app.api.deps import get_investigation_with_access
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -24,13 +25,14 @@ def get_orchestrator(db: Session = Depends(get_db)) -> AIOrchestrator:
 @router.get("/investigations/{investigation_id}/explain", response_model=dict)
 def explain_investigation(
     investigation_id: int,
-    db: Session = Depends(get_db),
+    investigation: Investigation = Depends(get_investigation_with_access),
     orchestrator: AIOrchestrator = Depends(get_orchestrator),
 ):
-    """Get AI-generated explanation of an investigation."""
-    investigation = db.query(Investigation).filter(Investigation.id == investigation_id).first()
-    if not investigation:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    """Get AI-generated explanation of an investigation.
+
+    Uses tenant isolation and capability-token access control.
+    Returns 404 for unauthorized access to prevent enumeration.
+    """
 
     findings = [
         {
@@ -69,13 +71,14 @@ def explain_investigation(
 @router.get("/investigations/{investigation_id}/report", response_model=dict)
 def generate_report(
     investigation_id: int,
-    db: Session = Depends(get_db),
+    investigation: Investigation = Depends(get_investigation_with_access),
     orchestrator: AIOrchestrator = Depends(get_orchestrator),
 ):
-    """Get AI-generated investigation report."""
-    investigation = db.query(Investigation).filter(Investigation.id == investigation_id).first()
-    if not investigation:
-        raise HTTPException(status_code=404, detail="Investigation not found")
+    """Get AI-generated investigation report.
+
+    Uses tenant isolation and capability-token access control.
+    Returns 404 for unauthorized access to prevent enumeration.
+    """
 
     investigation_data = {
         "id": investigation.id,
@@ -123,7 +126,7 @@ def ai_status(
     OpenAI is optional. When it is not configured, the deterministic fallback
     provider is always available for explanations and reports.
     """
-    openai_status = orchestrator.get_status()
+    openai_status = orchestrator._openai_provider.get_status()
     return {
         "provider": openai_status["provider"],
         "available": openai_status["available"],

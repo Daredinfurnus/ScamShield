@@ -393,9 +393,16 @@ def test_api_investigation_entities():
         "/api/analysis/text",
         json={"text": "Test for entities"},
     )
-    inv_id = create_resp.json()["investigation_id"]
+    data = create_resp.json()
+    inv_id = data["investigation_id"]
+    access_token = data.get("access_token")
 
-    response = client.get(f"/api/investigations/{inv_id}/entities/")
+    # Anonymous investigations require the capability token
+    headers = {}
+    if access_token:
+        headers["X-Investigation-Token"] = access_token
+
+    response = client.get(f"/api/investigations/{inv_id}/entities", headers=headers)
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 

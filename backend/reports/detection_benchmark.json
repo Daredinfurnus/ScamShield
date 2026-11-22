@@ -138,15 +138,15 @@
     }
   },
   "detector_metrics": {
+    "bank_impersonation": {
+      "expected": 4,
+      "detected": 4,
+      "missed": 0
+    },
     "suspicious_tld": {
       "expected": 6,
       "detected": 0,
       "missed": 6
-    },
-    "urgency_intimidation": {
-      "expected": 12,
-      "detected": 4,
-      "missed": 8
     },
     "otp_scam": {
       "expected": 4,
@@ -158,10 +158,10 @@
       "detected": 1,
       "missed": 0
     },
-    "bank_impersonation": {
-      "expected": 4,
+    "urgency_intimidation": {
+      "expected": 12,
       "detected": 4,
-      "missed": 0
+      "missed": 8
     },
     "phishing_credential_request": {
       "expected": 7,
@@ -307,16 +307,16 @@
         "phishing"
       ],
       "expected_indicators": [
+        "bank_impersonation",
         "suspicious_tld",
-        "urgency_intimidation",
         "otp_scam",
         "phishing_kyc_pressure",
-        "bank_impersonation"
+        "urgency_intimidation"
       ],
       "indicators_correctly_detected": [
+        "phishing_kyc_pressure",
         "bank_impersonation",
-        "otp_scam",
-        "phishing_kyc_pressure"
+        "otp_scam"
       ],
       "indicators_missed": [
         "urgency_intimidation",
@@ -354,8 +354,8 @@
       ],
       "expected_indicators": [
         "urgency_intimidation",
-        "suspicious_tld",
         "bank_impersonation",
+        "suspicious_tld",
         "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
@@ -398,8 +398,8 @@
       ],
       "expected_indicators": [
         "urgency_intimidation",
-        "suspicious_tld",
         "bank_impersonation",
+        "suspicious_tld",
         "phishing_credential_request"
       ],
       "indicators_correctly_detected": [
@@ -515,14 +515,14 @@
       ],
       "expected_indicators": [
         "urgency_intimidation",
-        "suspicious_tld",
-        "phishing_credential_request"
+        "phishing_credential_request",
+        "suspicious_tld"
       ],
       "indicators_correctly_detected": [],
       "indicators_missed": [
         "urgency_intimidation",
-        "suspicious_tld",
-        "phishing_credential_request"
+        "phishing_credential_request",
+        "suspicious_tld"
       ],
       "num_signals": 2,
       "explanation": "Account block threat + urgency + credential verification + suspicious TLD, no bank name"
@@ -628,8 +628,8 @@
         "phishing"
       ],
       "expected_indicators": [
-        "urgency_intimidation",
-        "upi_payment_fraud"
+        "upi_payment_fraud",
+        "urgency_intimidation"
       ],
       "indicators_correctly_detected": [
         "upi_payment_fraud"
@@ -926,8 +926,8 @@
         "phishing"
       ],
       "expected_indicators": [
-        "suspicious_tld",
-        "phishing_credential_request"
+        "phishing_credential_request",
+        "suspicious_tld"
       ],
       "indicators_correctly_detected": [
         "phishing_credential_request"
@@ -991,9 +991,9 @@
         "phishing"
       ],
       "expected_indicators": [
-        "ip_in_url",
         "urgency_intimidation",
-        "phishing_credential_request"
+        "phishing_credential_request",
+        "ip_in_url"
       ],
       "indicators_correctly_detected": [
         "urgency_intimidation",
@@ -1067,8 +1067,8 @@
         "phishing"
       ],
       "expected_indicators": [
-        "suspicious_tld",
-        "phishing_credential_request"
+        "phishing_credential_request",
+        "suspicious_tld"
       ],
       "indicators_correctly_detected": [
         "phishing_credential_request"
