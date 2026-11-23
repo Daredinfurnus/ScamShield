@@ -17,6 +17,11 @@ from ipaddress import ip_address
 from app.services.detection_signal import DetectionSignal
 from app.services.ssrf_protection import is_ip_allowed, normalize_ip
 
+# Maximum image size in bytes (10 MiB)
+MAX_IMAGE_BYTES: int = 10 * 1024 * 1024
+# Maximum base64 input size (approximately 10 MiB decoded)
+MAX_BASE64_INPUT_BYTES: int = int(10 * 1024 * 1024 * 4 / 3)
+
 
 def validate_url(url: str) -> Tuple[bool, Optional[str]]:
     """Validate a URL string syntactically and check hostname validity."""

@@ -1,11 +1,11 @@
 """Authentication and user management API endpoints."""
 
-from __future__ import annotations
-
 import secrets
 from datetime import datetime, timezone
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_current_user
@@ -29,7 +29,16 @@ from app.services.security.token_service import (
     hash_token,
 )
 
+# Ensure types are available in global namespace for pydantic/FastAPI
+UserCreateType = UserCreate
+UserLoginType = UserLogin
+TokenResponseType = TokenResponse
+RefreshTokenRequestType = RefreshTokenRequest
+
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# Rate limiter for auth endpoints
+limiter = Limiter(key_func=get_remote_address)
 
 
 def _is_secure_cookie() -> bool:
@@ -43,7 +52,8 @@ def _is_secure_cookie() -> bool:
 
 
 @router.post("/register", response_model=TokenResponse)
-def register(payload: UserCreate, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def register(payload: UserCreate, request: Request, response: Response, db: Session = Depends(get_db)):
     """Register a new user and organization tenant."""
     existing_user = db.query(User).filter(User.email == payload.email).first()
     if existing_user:
@@ -103,7 +113,8 @@ def register(payload: UserCreate, response: Response, db: Session = Depends(get_
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: UserLogin, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(payload: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)):
     """Authenticate with email and password via Argon2id."""
     user = db.query(User).filter(User.email == payload.email, User.is_active == True).first()  # noqa: E712
     if not user or not verify_password(payload.password, user.hashed_password):
@@ -144,7 +155,8 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh_token(payload: RefreshTokenRequest, response: Response, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def refresh_token(payload: RefreshTokenRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     """Rotate and refresh an access token. Detects replay attacks to revoke token families."""
     token_h = hash_token(payload.refresh_token)
     rt = db.query(RefreshToken).filter(RefreshToken.token_hash == token_h).first()
@@ -208,7 +220,8 @@ def refresh_token(payload: RefreshTokenRequest, response: Response, db: Session 
 
 
 @router.post("/logout")
-def logout(response: Response):
+@limiter.limit("10/minute")
+def logout(request: Request, response: Response):
     """Clear session cookie."""
     response.delete_cookie(key="access_token", secure=_is_secure_cookie(), samesite="lax")
     return {"message": "Logged out successfully"}
